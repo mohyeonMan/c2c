@@ -1,0 +1,174 @@
+C2C (Cup2Cup) MVP 시스템 설계 계획
+=====================================
+
+작성일: 2025-08-25
+목적: Redis 사용 방식 및 전체 아키텍처 명확화
+
+## 1. 데이터 저장 전략
+
+### 1.1 PostgreSQL (영속 데이터)
+**용도**: 시스템 설정 및 에러 정보
+**저장 대상**:
+- ErrorInfo: 에러 코드, 메시지, HTTP 상태 (DB 테이블)
+- 시스템 설정값 (향후 확장)
+
+**근거**: 명세서 "상황별 에러 코드와 메시지는 db에서 관리"
+
+### 1.2 Redis (비영속 데이터)
+**용도**: 실시간 세션 관리 및 메시지 브로커
+**저장 방식**: Key-Value 구조 (객체 직렬화 NO)
+
+**Redis 키 구조 (명세서 기준)**:
+```
+# 방 멤버 관리
+room:{roomId}:members (SET) - userId 목록
+  예: room:abc123:members = {"user1", "user2", "user3"}
+
+# 사용자 프레즌스
+user:{userId}:presence (STRING, TTL=30s) - "online" 상태값
+  예: user:user1:presence = "online" (30초 TTL)
+
+# 메시지 브로커
+chan:{roomId} (PUB/SUB) - 메시지 전송 채널
+  예: PUBLISH chan:abc123 "{\"msgId\":\"...\", \"from\":\"user1\", \"text\":\"hello\"}"
+```
+
+**Redis 작업 예시**:
+- 입장: `SADD room:abc123:members user1`
+- 퇴장: `SREM room:abc123:members user1`
+- 빈방TTL: `EXPIRE room:abc123:members 300`
+- 재입장: `PERSIST room:abc123:members`
+- 프레즌스: `SETEX user:user1:presence 30 online`
+- 메시지: `PUBLISH chan:abc123 "JSON메시지"`
+
+### 1.3 메모리 (임시 데이터)
+**용도**: Rate limiting, 중복 방지
+**저장 대상**:
+- ConcurrentHashMap<String, AtomicInteger> userMessageCounts (초당 전송 횟수)
+- ConcurrentHashMap<String, Long> recentClientMsgIds (중복 메시지 방지)
+
+**근거**: 
+- Rate limiting은 메모리에서 빠른 처리 필요
+- 서버 재시작 시 리셋되어도 무방한 데이터
+- Redis 부하 감소
+
+## 2. 메시지 처리 흐름
+
+### 2.1 비영속 메시지 (명세서 핵심 요구사항)
+**설계 원칙**: "메시지 본문은 서버에 저장하지 않음(비영속)"
+
+**처리 흐름**:
+```
+1. 클라이언트 → WebSocket → 서버 (메시지 수신)
+2. 서버: 도메인 검증 (크기, Rate limit 등)
+3. 서버: Message 객체 생성 (메모리에만 존재)
+4. 서버: Redis PUBLISH chan:{roomId} (JSON 직렬화)
+5. Redis: 구독 중인 서버들에게 브로드캐스트
+6. 서버: 같은 방 WebSocket 세션들에게 전송
+7. 메시지 객체 GC (저장하지 않음)
+```
+
+### 2.2 메시지 JSON 형식
+```json
+{
+  "msgId": "uuid-generated",
+  "clientMsgId": "client-provided", 
+  "roomId": "abc123",
+  "from": "user1",
+  "text": "안녕하세요",
+  "timestamp": "2025-08-25T10:30:00"
+}
+```
+
+## 3. 도메인 모델 vs Repository 분리
+
+### 3.1 현재 문제점
+- Room 도메인 모델이 Redis 저장 방식과 혼재
+- Repository가 도메인 객체 전체를 저장하려는 구조
+
+### 3.2 수정 방향
+
+**도메인 모델 (순수 비즈니스 로직)**:
+```java
+// 메모리에서만 존재, Redis 저장 X
+Room room = new Room(roomId);
+room.addMember(userId);  // 비즈니스 룰 검증만
+```
+
+**Repository (Redis 연동)**:
+```java
+// Redis 키-값 직접 조작
+void addMember(String roomId, String userId) {
+    jedis.sadd("room:" + roomId + ":members", userId);
+}
+
+Set<String> getMembers(String roomId) {
+    return jedis.smembers("room:" + roomId + ":members");
+}
+```
+
+**Service (조율)**:
+```java
+public Room joinRoom(String roomId, String userId) {
+    Room room = reconstructRoomFromRedis(roomId);  // Redis 데이터로 재구성
+    room.addMember(userId);                        // 도메인 검증
+    roomRepository.addMember(roomId, userId);      // Redis 저장
+    return room;
+}
+```
+
+## 4. 구현 우선순위
+
+### Phase 1: 핵심 Redis 연동
+1. RoomRedisRepository: Redis SET 연산으로 멤버 관리
+2. UserRedisRepository: Redis STRING + TTL로 프레즌스 관리  
+3. RedisMessageBroker: Pub/Sub 메시지 브로드캐스트
+
+### Phase 2: WebSocket 연동
+1. WebSocket 메시지 핸들러
+2. 프로토콜 파서 (join, msg, ping/pong)
+3. 세션 관리
+
+### Phase 3: 비즈니스 로직 통합
+1. Rate limiting
+2. 방 수명주기 관리 (TTL)
+3. Graceful shutdown
+
+## 5. 성능 고려사항
+
+### 5.1 Redis 최적화
+- Pipeline 사용 (다중 명령 배치 처리)
+- Connection Pool 설정
+- 키 만료 정책 설정
+
+### 5.2 메모리 관리
+- 도메인 객체는 요청 스코프에서만 존재
+- Rate limiting 맵 주기적 정리
+- GC 친화적 설계
+
+## 6. 확장 고려사항
+
+### 6.1 브로커 추상화
+```java
+interface MessageBroker {
+    void publish(String channel, String message);
+    void subscribe(String channel, MessageHandler handler);
+}
+
+// 구현체: RedisMessageBroker, KafkaMessageBroker, RabbitMQMessageBroker
+```
+
+### 6.2 멀티 인스턴스 대응
+- Redis 클러스터 해시 태그: `{room:abc123}:members`
+- 세션 스티키 vs 세션 공유 전략
+- Load balancer 설정
+
+## 결론
+
+**핵심 설계 원칙**:
+1. 도메인 모델: 순수 비즈니스 로직, 메모리에만 존재
+2. Redis: 키-값 저장소로 활용, 객체 직렬화 금지
+3. PostgreSQL: 영속적 설정 데이터만 저장
+4. 메시지: 완전 비영속, 브로커를 통한 실시간 전달만
+
+이 설계로 명세서의 "가벼운 일회성 대화" 철학과 "비영속 메시지" 요구사항을 충족하면서도 확장 가능한 구조를 구현할 수 있습니다.

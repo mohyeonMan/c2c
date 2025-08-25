@@ -1,0 +1,27 @@
+원자적 “빈 방 전이” 보장
+
+    지금 플랜엔 퇴장→0명 전환의 경쟁 상태 처리(동시 퇴장)가 빠져 있어. Lua 한 방으로 SREM→SCARD==0이면 EXPIRE까지 처리 권장. (우리 명세의 운영 전략에도 부합)
+
+하트비트·프레즌스 규칙 명문화
+
+    문서엔 명시돼 있으니 플랜에도 10s ping / 30s 타임아웃 / presence=SETEX 30s를 확실히 적어. 구현 빠뜨리기 쉬움.
+
+도메인 재구성(reconstructRoomFromRedis) 사용 주의
+
+    조인마다 Room을 “재구성”한다고 되어 있는데, 이건 검증용 뷰로만 쓰고, 소스 오브 트루스는 Redis임을 못 박자. 불필요한 round‑trip과 상태 오해 방지.
+
+오류 응답 표준화 & 에러카탈로그 연동 명시
+
+    t:"error", code, message, retryAfterMs? 포맷으로 클라 피드백 일관화. Postgres 카탈로그에서 로딩(캐시) 후 메시지 선택. (누나 브리프/지시문에 정의돼 있음)
+
+메시지 JSON, 프로토콜 이벤트 이름 정합
+
+    플랜의 메시지 JSON엔 t 필드가 빠져 있어. join / joined / msg / ping / pong 이벤트 이름을 일관 포맷으로 맞춰줘.
+
+구독 시점 최적화(채널 lazy subscribe)
+
+    방 첫 입장 때만 chan:{roomId} 구독하고, 방이 삭제되면 구독 해제하는 식으로 노이즈 최소화 제안(플랜엔 구독 타이밍이 암시적).
+
+운영 노브 변수 포함
+
+    ROOM_IDLE_TTL_SEC / HEARTBEAT_INTERVAL_MS / RATE_LIMIT_MSG_PER_SEC / MAX_MSG_SIZE 등 환경변수로 조정 가능하게.

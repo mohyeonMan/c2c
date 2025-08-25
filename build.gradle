@@ -1,0 +1,60 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.5'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.c2c'
+version = '0.0.1-SNAPSHOT'
+description = 'Demo project for Spring Boot'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// Spring Boot starters
+	implementation 'org.springframework.boot:spring-boot-starter'
+	// WebSocket 실시간 통신 요구사항: "WebSocket 서버 1개" - MVP 서버 가이드 참조
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	// Redis 캐싱/세션 관리: "Redis 1개" - 방 참여자, 프레즌스, Pub/Sub 채널 관리용
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	// PostgreSQL DB: "Postgresql사용할것" - 명시적 요구사항
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	// 입력 검증: 메시지 크기 제한(2KB), rate limiting 구현용
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	
+	// Database
+	// PostgreSQL 드라이버: 명세서 요구사항 "Postgresql사용할것"
+	implementation 'org.postgresql:postgresql'
+	
+	// Redis
+	// Jedis 클라이언트: Redis Pub/Sub, 키-값 저장소 작업용 (spring-data-redis 기본)
+	implementation 'redis.clients:jedis'
+	
+	// JSON processing
+	// WebSocket 프로토콜: JSON 메시지 파싱/생성용 (join, msg, ping/pong)
+	implementation 'com.fasterxml.jackson.core:jackson-databind'
+	
+	// Configuration
+	// 설정 프로퍼티 자동완성: 환경변수 매핑용 (REDIS_URL, HEARTBEAT_INTERVAL_MS 등)
+	implementation 'org.springframework.boot:spring-boot-configuration-processor'
+	
+	// Testing
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	// Docker 컨테이너 테스트: Redis, PostgreSQL 통합 테스트용
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.testcontainers:postgresql'
+	testImplementation 'org.testcontainers:testcontainers'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

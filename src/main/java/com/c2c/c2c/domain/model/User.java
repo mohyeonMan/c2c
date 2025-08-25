@@ -15,9 +15,12 @@ import java.time.LocalDateTime;
 public class User {
     
     private final String userId;
-    private String nickname; // 선택적 닉네임 (명세서: "닉네임/이모지 선택(옵션)")
-    private String emoji;    // 선택적 이모지
+    private String sessionId; // WebSocket 세션 ID
+    private String roomId;    // 현재 참여 중인 방 ID
+    private String nickname;  // 선택적 닉네임 (명세서: "닉네임/이모지 선택(옵션)")
+    private String emoji;     // 선택적 이모지
     private LocalDateTime lastSeenAt; // 마지막 활성 시간 (프레즌스 관리용)
+    private LocalDateTime joinedAt;   // 방 참여 시간
     private boolean isOnline;
     
     // 상수: 명세서의 "30초 미수신 시 오프라인 처리" 요구사항
@@ -31,6 +34,13 @@ public class User {
         this.userId = userId;
         this.isOnline = true; // 생성 시 온라인 상태
         this.lastSeenAt = LocalDateTime.now();
+    }
+    
+    public User(String userId, String sessionId, String roomId, LocalDateTime joinedAt) {
+        this(userId);
+        this.sessionId = sessionId;
+        this.roomId = roomId;
+        this.joinedAt = joinedAt;
     }
     
     public User(String userId, String nickname, String emoji) {
@@ -92,8 +102,36 @@ public class User {
     }
     
     // Getters and Setters
+    public String getId() {
+        return userId;
+    }
+    
     public String getUserId() {
         return userId;
+    }
+    
+    public String getSessionId() {
+        return sessionId;
+    }
+    
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
+    }
+    
+    public String getRoomId() {
+        return roomId;
+    }
+    
+    public void setRoomId(String roomId) {
+        this.roomId = roomId;
+    }
+    
+    public LocalDateTime getJoinedAt() {
+        return joinedAt;
+    }
+    
+    public void setJoinedAt(LocalDateTime joinedAt) {
+        this.joinedAt = joinedAt;
     }
     
     public String getNickname() {

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>헬스체크 - C2C</title>
+    <style>
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+            background: #f8f3f4;
+            color: #1e1e1e;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        .status {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        .status.ok { color: #2e7d32; }
+        .title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #b76e79;
+            margin-bottom: 16px;
+        }
+        .info {
+            color: #666;
+            margin-bottom: 32px;
+        }
+        .links {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+        }
+        .link {
+            color: #b76e79;
+            text-decoration: none;
+            padding: 8px 16px;
+            border: 1px solid #b76e79;
+            border-radius: 8px;
+            transition: all 120ms ease-out;
+        }
+        .link:hover {
+            background: #b76e79;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="status ok">✓</div>
+        <h1 class="title">C2C 서버 상태</h1>
+        <p class="info">
+            모든 시스템이 정상적으로 동작 중입니다.<br>
+            Cup2Cup에서 가벼운 대화를 시작해보세요.
+        </p>
+        
+        <div class="links">
+            <a href="/" class="link">홈으로 가기</a>
+            <a href="/actuator/health" class="link">상세 상태</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -23,6 +23,10 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter'
 	// WebSocket 실시간 통신 요구사항: "WebSocket 서버 1개" - MVP 서버 가이드 참조
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	// Thymeleaf 템플릿 엔진: C2C MVP 웹 페이지용 (메인, 채팅방 페이지)
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+	// Spring Web: HTTP 컨트롤러, REST API용
+	implementation 'org.springframework.boot:spring-boot-starter-web'
 	// Redis 캐싱/세션 관리: "Redis 1개" - 방 참여자, 프레즌스, Pub/Sub 채널 관리용
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	// PostgreSQL DB: "Postgresql사용할것" - 명시적 요구사항
@@ -48,10 +52,17 @@ dependencies {
 	
 	// Testing
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webflux' // WebTestClient용
 	// Docker 컨테이너 테스트: Redis, PostgreSQL 통합 테스트용
 	testImplementation 'org.testcontainers:junit-jupiter'
 	testImplementation 'org.testcontainers:postgresql'
 	testImplementation 'org.testcontainers:testcontainers'
+	// Redis 테스트 컨테이너
+	testImplementation 'org.testcontainers:testcontainers'
+	testImplementation 'it.ozimov:embedded-redis:0.7.3' // 임베디드 Redis
+	// WebSocket 테스트
+	testImplementation 'org.springframework:spring-websocket'
+	testImplementation 'org.springframework:spring-messaging'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

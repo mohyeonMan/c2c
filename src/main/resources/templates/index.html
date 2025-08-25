@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C2C - Cup2Cup</title>
+    
+    <!-- 레이아웃 CSS 포함 -->
+    <th:block th:include="layout :: head"></th:block>
+    
+    <style>
+        /* 메인 페이지 전용 스타일 */
+        .hero {
+            text-align: center;
+            padding: 60px 24px 40px;
+            background: linear-gradient(135deg, var(--color-bg-soft) 0%, var(--color-bg-white) 100%);
+        }
+        
+        .hero-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+        
+        .hero-subtitle {
+            font-size: var(--font-size-body);
+            color: var(--color-text-secondary);
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        
+        .hero-description {
+            font-size: var(--font-size-small);
+            color: var(--color-text-secondary);
+            margin-bottom: 32px;
+            padding: 0 16px;
+        }
+        
+        /* 액션 카드들 */
+        .actions {
+            padding: 0 24px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .action-card {
+            background: var(--color-bg-white);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-large);
+            padding: 24px;
+            text-align: center;
+            box-shadow: var(--shadow);
+            transition: all 120ms ease-out;
+        }
+        
+        .action-card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+        
+        .action-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--color-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            color: white;
+            font-size: 20px;
+        }
+        
+        .action-title {
+            font-size: var(--font-size-large);
+            font-weight: 600;
+            color: var(--color-text);
+            margin-bottom: 8px;
+        }
+        
+        .action-description {
+            font-size: var(--font-size-small);
+            color: var(--color-text-secondary);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        
+        /* 폼 스타일 */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: var(--font-size-small);
+            font-weight: 500;
+            color: var(--color-text);
+            margin-bottom: 8px;
+        }
+        
+        /* 푸터 */
+        .footer {
+            margin-top: auto;
+            padding: 20px 24px;
+            text-align: center;
+            color: var(--color-text-secondary);
+            font-size: var(--font-size-small);
+        }
+        
+        .footer a {
+            color: var(--color-primary);
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        /* 숨겨진 폼들 */
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 히어로 섹션 -->
+        <div class="hero">
+            <h1 class="hero-title">C2C</h1>
+            <p class="hero-subtitle">종이컵 전화기에서 영감받은 장거리 귓속말</p>
+            <p class="hero-description">
+                메시지는 저장하지 않고, 상대가 받으면 소멸해요.<br>
+                부담 없이 열고 닫는 가벼운 일회성 대화를 시작해보세요.
+            </p>
+        </div>
+        
+        <!-- 액션 카드들 -->
+        <div class="actions">
+            <!-- 새 채팅방 만들기 -->
+            <div class="action-card" id="createCard">
+                <div class="action-icon">+</div>
+                <h2 class="action-title">새로운 방 만들기</h2>
+                <p class="action-description">새 채팅방을 만들고 친구들을 초대해보세요</p>
+                <button type="button" class="btn btn-primary" onclick="showCreateForm()">
+                    방 만들기
+                </button>
+            </div>
+            
+            <!-- 채팅방 참여하기 -->
+            <div class="action-card" id="joinCard">
+                <div class="action-icon">→</div>
+                <h2 class="action-title">방 참여하기</h2>
+                <p class="action-description">친구가 보낸 초대 링크로 채팅방에 들어가세요</p>
+                <button type="button" class="btn btn-secondary" onclick="showJoinForm()">
+                    방 참여하기
+                </button>
+            </div>
+        </div>
+        
+        <!-- 채팅방 생성 폼 (숨겨짐) -->
+        <div class="actions hidden" id="createForm">
+            <div class="action-card">
+                <h2 class="action-title">새 채팅방 만들기</h2>
+                <form onsubmit="createRoom(event)">
+                    <div class="form-group">
+                        <label class="form-label" for="createNickname">닉네임</label>
+                        <input type="text" 
+                               id="createNickname" 
+                               class="input" 
+                               placeholder="어떻게 불러드릴까요?"
+                               maxlength="20"
+                               required>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button type="button" class="btn btn-secondary" onclick="showMainCards()">
+                            취소
+                        </button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">
+                            방 만들고 입장하기
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 채팅방 참여 폼 (숨겨짐) -->
+        <div class="actions hidden" id="joinForm">
+            <div class="action-card">
+                <h2 class="action-title">채팅방 참여하기</h2>
+                <form onsubmit="joinRoom(event)">
+                    <div class="form-group">
+                        <label class="form-label" for="roomId">방 코드</label>
+                        <input type="text" 
+                               id="roomId" 
+                               class="input" 
+                               placeholder="친구가 준 방 코드를 입력하세요"
+                               maxlength="20"
+                               required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="joinNickname">닉네임</label>
+                        <input type="text" 
+                               id="joinNickname" 
+                               class="input" 
+                               placeholder="어떻게 불러드릴까요?"
+                               maxlength="20"
+                               required>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button type="button" class="btn btn-secondary" onclick="showMainCards()">
+                            취소
+                        </button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">
+                            방 참여하기
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 푸터 -->
+        <div class="footer">
+            <p>&copy; 2025 C2C - Cup2Cup. 가벼운 대화를 위해.</p>
+        </div>
+    </div>
+    
+    <script>
+        // UI 상태 관리
+        function showCreateForm() {
+            document.getElementById('createCard').classList.add('hidden');
+            document.getElementById('joinCard').classList.add('hidden');
+            document.getElementById('createForm').classList.remove('hidden');
+            document.getElementById('createNickname').focus();
+        }
+        
+        function showJoinForm() {
+            document.getElementById('createCard').classList.add('hidden');
+            document.getElementById('joinCard').classList.add('hidden');
+            document.getElementById('joinForm').classList.remove('hidden');
+            document.getElementById('roomId').focus();
+        }
+        
+        function showMainCards() {
+            document.getElementById('createForm').classList.add('hidden');
+            document.getElementById('joinForm').classList.add('hidden');
+            document.getElementById('createCard').classList.remove('hidden');
+            document.getElementById('joinCard').classList.remove('hidden');
+        }
+        
+        // 새 채팅방 만들기
+        function createRoom(event) {
+            event.preventDefault();
+            
+            const nickname = document.getElementById('createNickname').value.trim();
+            if (!nickname) {
+                showToast('닉네임을 입력해주세요', 'warning');
+                return;
+            }
+            
+            if (nickname.length > 20) {
+                showToast('닉네임은 20자 이하로 입력해주세요', 'warning');
+                return;
+            }
+            
+            showLoading();
+            // 서버로 리다이렉트
+            window.location.href = `/create?nickname=${encodeURIComponent(nickname)}`;
+        }
+        
+        // 채팅방 참여하기
+        function joinRoom(event) {
+            event.preventDefault();
+            
+            const roomId = document.getElementById('roomId').value.trim();
+            const nickname = document.getElementById('joinNickname').value.trim();
+            
+            if (!roomId) {
+                showToast('방 코드를 입력해주세요', 'warning');
+                return;
+            }
+            
+            if (!nickname) {
+                showToast('닉네임을 입력해주세요', 'warning');
+                return;
+            }
+            
+            if (nickname.length > 20) {
+                showToast('닉네임은 20자 이하로 입력해주세요', 'warning');
+                return;
+            }
+            
+            showLoading();
+            // 서버로 리다이렉트
+            window.location.href = `/join/${encodeURIComponent(roomId)}?nickname=${encodeURIComponent(nickname)}`;
+        }
+        
+        // URL에서 방 코드 자동 입력 (초대 링크 지원)
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomFromUrl = urlParams.get('room');
+            
+            if (roomFromUrl) {
+                // 초대 링크로 접근한 경우 방 참여 폼을 바로 표시
+                showJoinForm();
+                document.getElementById('roomId').value = roomFromUrl;
+                document.getElementById('joinNickname').focus();
+            }
+        });
+    </script>
+</body>
+</html>

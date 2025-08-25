@@ -1,0 +1,139 @@
+# C2C MVP Docker Compose 설정
+# 로컬 개발 및 테스트 환경용
+
+version: '3.8'
+
+services:
+  # PostgreSQL 데이터베이스
+  postgres:
+    image: postgres:15-alpine
+    container_name: c2c-postgres
+    environment:
+      POSTGRES_DB: c2c
+      POSTGRES_USER: c2c
+      POSTGRES_PASSWORD: c2c123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - c2c-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U c2c -d c2c"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # Redis 서버 (메모리 캐시 & Pub/Sub)
+  redis:
+    image: redis:7.2-alpine
+    container_name: c2c-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./scripts/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - c2c-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # C2C 애플리케이션
+  c2c-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: c2c-app
+    environment:
+      # Spring Boot 설정
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-default}
+      
+      # C2C 비즈니스 설정 (환경변수로 오버라이드 가능)
+      HEARTBEAT_INTERVAL_MS: ${HEARTBEAT_INTERVAL_MS:-10000}
+      PRESENCE_TTL_SEC: ${PRESENCE_TTL_SEC:-30}
+      ROOM_IDLE_TTL_SEC: ${ROOM_IDLE_TTL_SEC:-300}
+      RATE_LIMIT_MSG_PER_SEC: ${RATE_LIMIT_MSG_PER_SEC:-5}
+      MAX_MSG_SIZE: ${MAX_MSG_SIZE:-2048}
+      MAX_ROOM_MEMBERS: ${MAX_ROOM_MEMBERS:-10}
+      
+      # WebSocket 설정
+      WS_ALLOWED_ORIGINS: ${WS_ALLOWED_ORIGINS:-*}
+      WS_BUFFER_SIZE: ${WS_BUFFER_SIZE:-8192}
+      
+      # JVM 설정 (Docker 환경 최적화)
+      JAVA_OPTS: >
+        -Xms512m 
+        -Xmx1g 
+        -XX:+UseG1GC 
+        -XX:MaxGCPauseMillis=100 
+        -XX:+UseStringDeduplication
+        -Djava.security.egd=file:/dev/./urandom
+    ports:
+      - "8080:8080"
+    volumes:
+      - app_logs:/logs
+    networks:
+      - c2c-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1.5G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+# 네트워크 설정
+networks:
+  c2c-network:
+    driver: bridge
+    name: c2c-network
+
+# 볼륨 설정 (데이터 영속성)
+volumes:
+  postgres_data:
+    name: c2c-postgres-data
+  redis_data:
+    name: c2c-redis-data
+  app_logs:
+    name: c2c-app-logs
+
+# 환경변수 파일 예시 (.env)
+# 프로젝트 루트에 .env 파일을 생성하여 환경변수 설정 가능
+# 
+# # Spring 환경
+# SPRING_PROFILES_ACTIVE=prod
+# 
+# # C2C 설정
+# HEARTBEAT_INTERVAL_MS=10000
+# PRESENCE_TTL_SEC=30
+# ROOM_IDLE_TTL_SEC=300
+# RATE_LIMIT_MSG_PER_SEC=5
+# MAX_MSG_SIZE=2048
+# MAX_ROOM_MEMBERS=10
+# 
+# # WebSocket 설정
+# WS_ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+# WS_BUFFER_SIZE=8192

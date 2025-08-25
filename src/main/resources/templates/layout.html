@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title} ?: 'C2C - Cup2Cup'">C2C - Cup2Cup</title>
+    
+    <!-- C2C 컨셉 CSS -->
+    <style>
+        /* C2C 컨셉 컬러 & 디자인 토큰 */
+        :root {
+            /* 명세서 컬러 팔레트 */
+            --color-primary: #B76E79;        /* Light Burgundy */
+            --color-primary-700: #8E4A53;    /* Darker Accent */
+            --color-bg-soft: #F8F3F4;        /* Soft Background */
+            --color-text: #1E1E1E;           /* Ink(본문) */
+            --color-success: #2E7D32;
+            --color-warning: #F57C00;
+            --color-danger: #C62828;
+            
+            /* 추가 컬러 */
+            --color-bg-white: #FFFFFF;
+            --color-border: #E0E0E0;
+            --color-text-secondary: #666666;
+            --color-text-placeholder: #999999;
+            
+            /* 명세서 디자인 토큰 */
+            --radius: 12px;
+            --radius-small: 8px;
+            --radius-large: 16px;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.12);
+            
+            /* 폰트 사이즈 */
+            --font-size-body: 16px;
+            --font-size-small: 14px;
+            --font-size-large: 18px;
+            --font-size-title: 20px;
+        }
+        
+        /* 기본 리셋 & 레이아웃 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            font-size: var(--font-size-body);
+            color: var(--color-text);
+            background-color: var(--color-bg-soft);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        /* 모바일 1단 레이아웃 (명세서 기준) */
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            min-height: 100vh;
+            background-color: var(--color-bg-white);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 공통 버튼 스타일 */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: var(--font-size-body);
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 120ms ease-out; /* 명세서 모션 가이드 */
+            min-height: 44px; /* 명세서 터치 영역 */
+            box-shadow: var(--shadow);
+        }
+        
+        .btn:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-1px);
+        }
+        
+        .btn:active {
+            transform: scale(0.97); /* 명세서 마이크로 인터랙션 */
+        }
+        
+        .btn-primary {
+            background-color: var(--color-primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--color-primary-700);
+        }
+        
+        .btn-secondary {
+            background-color: var(--color-bg-soft);
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+        }
+        
+        /* 공통 입력 필드 */
+        .input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            font-size: var(--font-size-body);
+            background-color: var(--color-bg-white);
+            transition: border-color 120ms ease-out;
+        }
+        
+        .input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(183, 110, 121, 0.1);
+        }
+        
+        .input::placeholder {
+            color: var(--color-text-placeholder);
+        }
+        
+        /* 유틸리티 클래스 */
+        .text-center { text-align: center; }
+        .text-small { font-size: var(--font-size-small); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .mb-1 { margin-bottom: 8px; }
+        .mb-2 { margin-bottom: 16px; }
+        .mb-3 { margin-bottom: 24px; }
+        .mt-1 { margin-top: 8px; }
+        .mt-2 { margin-top: 16px; }
+        .mt-3 { margin-top: 24px; }
+        .p-3 { padding: 24px; }
+        .p-4 { padding: 32px; }
+        
+        /* 토스트 알림 (명세서: 2초 자동 사라짐) */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--color-text);
+            color: white;
+            padding: 12px 20px;
+            border-radius: var(--radius);
+            font-size: var(--font-size-small);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 120ms ease-out;
+        }
+        
+        .toast.show {
+            opacity: 1;
+        }
+        
+        .toast.success {
+            background: var(--color-success);
+        }
+        
+        .toast.warning {
+            background: var(--color-warning);
+        }
+        
+        .toast.danger {
+            background: var(--color-danger);
+        }
+        
+        /* 로딩 바 (명세서: 상단 얇은 progress bar) */
+        .loading-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--color-primary);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 200ms ease-out;
+            z-index: 1001;
+        }
+        
+        .loading-bar.active {
+            animation: loading 2s ease-in-out infinite;
+        }
+        
+        @keyframes loading {
+            0% { transform: scaleX(0); }
+            50% { transform: scaleX(0.7); }
+            100% { transform: scaleX(1); }
+        }
+        
+        /* 반응형 (모바일 우선) */
+        @media (max-width: 480px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+            }
+        }
+        
+        /* 접근성 - 포커스 링 */
+        .btn:focus-visible,
+        .input:focus-visible {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 2px;
+        }
+        
+        /* Reduce motion 지원 */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+    
+    <!-- 페이지별 추가 CSS -->
+    <th:block th:fragment="extra-css"></th:block>
+</head>
+<body>
+    <!-- 로딩 바 -->
+    <div class="loading-bar" id="loadingBar"></div>
+    
+    <!-- 토스트 알림 -->
+    <div class="toast" id="toast"></div>
+    
+    <!-- 메인 컨테이너 -->
+    <div class="container">
+        <!-- 페이지 콘텐츠 -->
+        <main th:fragment="content">
+            <!-- 각 페이지에서 오버라이드 -->
+        </main>
+    </div>
+    
+    <!-- 공통 JavaScript -->
+    <script>
+        // 토스트 메시지 표시 함수 (명세서: 2초 자동 사라짐)
+        function showToast(message, type = 'default') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+        
+        // 로딩 바 제어
+        function showLoading() {
+            document.getElementById('loadingBar').classList.add('active');
+        }
+        
+        function hideLoading() {
+            document.getElementById('loadingBar').classList.remove('active');
+        }
+        
+        // 페이지별 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            // 기본 로딩 완료 후 로딩 바 숨김
+            hideLoading();
+        });
+    </script>
+    
+    <!-- 페이지별 추가 JavaScript -->
+    <th:block th:fragment="extra-js"></th:block>
+</body>
+</html>

@@ -1,0 +1,88 @@
+# C2C MVP 테스트 환경 설정
+
+server:
+  port: 0 # 랜덤 포트 사용
+
+spring:
+  profiles:
+    active: test
+    
+  # TestContainers를 통한 동적 설정 (실제 값은 테스트에서 동적 할당)
+  datasource:
+    url: jdbc:postgresql://localhost:5432/c2c_test
+    username: test
+    password: test
+    driver-class-name: org.postgresql.Driver
+    
+  jpa:
+    hibernate:
+      ddl-auto: create-drop # 테스트 시 스키마 자동 생성/삭제
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: false # 테스트에서는 SQL 로그 비활성화
+    
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      jedis:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 2
+          max-wait: 2s
+      timeout: 3s
+      
+  websocket:
+    max-sessions: 1000 # 테스트용 최대 세션 수
+
+# C2C 비즈니스 설정
+c2c:
+  # Redis 관련 설정  
+  redis:
+    url: redis://localhost:6379
+    key-prefix: c2c:test:
+    
+  # 하트비트 설정 (테스트용 짧은 간격)
+  heartbeat:
+    interval-ms: 1000 # 1초 (테스트용)
+    presence-ttl-sec: 5 # 5초 (테스트용)
+    
+  # 방 설정
+  room:
+    max-members: 10
+    ttl-sec: 10 # 10초 (테스트용 짧은 TTL)
+    cleanup-interval-ms: 5000 # 5초마다 정리
+    
+  # 메시지 설정
+  message:
+    max-size-kb: 2
+    rate-limit:
+      max-per-second: 5
+      window-sec: 1
+
+# 로깅 설정
+logging:
+  level:
+    com.c2c: DEBUG # C2C 패키지는 디버그 레벨
+    org.springframework.web.socket: DEBUG # WebSocket 디버그
+    org.springframework.data.redis: INFO
+    org.hibernate.SQL: ERROR # SQL 로그 비활성화
+    org.hibernate.type.descriptor.sql: ERROR
+    org.testcontainers: INFO
+    
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] - %msg%n"
+
+# 테스트 관련 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

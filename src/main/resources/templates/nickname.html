@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>닉네임 입력 - C2C</title>
+    
+    <!-- 레이아웃 CSS 포함 -->
+    <th:block th:include="layout :: head"></th:block>
+    
+    <style>
+        /* 닉네임 페이지 전용 스타일 */
+        .nickname-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 40px 24px;
+            text-align: center;
+        }
+        
+        .nickname-header {
+            margin-bottom: 40px;
+        }
+        
+        .nickname-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--color-text);
+            margin-bottom: 12px;
+        }
+        
+        .nickname-subtitle {
+            font-size: var(--font-size-body);
+            color: var(--color-text-secondary);
+            line-height: 1.5;
+        }
+        
+        /* 방 정보 (참여하기 모드일 때) */
+        .room-info {
+            background: var(--color-bg-soft);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 32px;
+            text-align: left;
+        }
+        
+        .room-info-label {
+            font-size: var(--font-size-small);
+            color: var(--color-text-secondary);
+            margin-bottom: 4px;
+        }
+        
+        .room-info-value {
+            font-size: var(--font-size-body);
+            font-weight: 600;
+            color: var(--color-text);
+            word-break: break-all;
+        }
+        
+        /* 폼 스타일 */
+        .nickname-form {
+            max-width: 320px;
+            margin: 0 auto;
+        }
+        
+        .form-group {
+            margin-bottom: 24px;
+            text-align: left;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: var(--font-size-small);
+            font-weight: 500;
+            color: var(--color-text);
+            margin-bottom: 8px;
+        }
+        
+        .nickname-input {
+            font-size: 18px;
+            text-align: center;
+            padding: 16px;
+        }
+        
+        .char-counter {
+            text-align: right;
+            font-size: var(--font-size-small);
+            color: var(--color-text-secondary);
+            margin-top: 4px;
+        }
+        
+        .char-counter.warning {
+            color: var(--color-warning);
+        }
+        
+        .char-counter.danger {
+            color: var(--color-danger);
+        }
+        
+        /* 버튼 그룹 */
+        .button-group {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .back-link {
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            font-size: var(--font-size-small);
+            margin-top: 20px;
+            display: inline-block;
+            transition: color 120ms ease-out;
+        }
+        
+        .back-link:hover {
+            color: var(--color-primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nickname-container">
+            <!-- 헤더 -->
+            <div class="nickname-header">
+                <h1 class="nickname-title" th:text="${mode == 'create'} ? '새 채팅방 만들기' : (${mode == 'join'} ? '채팅방 참여하기' : '닉네임 입력')">
+                    닉네임 입력
+                </h1>
+                <p class="nickname-subtitle">
+                    대화에서 어떻게 불러드릴까요?<br>
+                    언제든지 바꿀 수 있어요.
+                </p>
+            </div>
+            
+            <!-- 방 정보 (참여하기 모드) -->
+            <div class="room-info" th:if="${roomId}" style="text-align: left;">
+                <div class="room-info-label">참여할 방</div>
+                <div class="room-info-value" th:text="${roomId}">abc123</div>
+            </div>
+            
+            <!-- 닉네임 입력 폼 -->
+            <form class="nickname-form" onsubmit="submitForm(event)">
+                <div class="form-group">
+                    <label class="form-label" for="nickname">닉네임</label>
+                    <input type="text" 
+                           id="nickname" 
+                           class="input nickname-input" 
+                           placeholder="예: 커피사랑, 밤올빼미, 새싹이"
+                           maxlength="20"
+                           oninput="updateCharCounter()"
+                           required>
+                    <div class="char-counter" id="charCounter">0 / 20</div>
+                </div>
+                
+                <div class="button-group">
+                    <button type="button" class="btn btn-secondary" onclick="goBack()">
+                        취소
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;" id="submitBtn"
+                            th:text="${mode == 'create'} ? '방 만들고 입장' : '방 참여하기'">
+                        방 참여하기
+                    </button>
+                </div>
+            </form>
+            
+            <!-- 뒤로가기 링크 -->
+            <a href="/" class="back-link">← 처음으로 돌아가기</a>
+        </div>
+    </div>
+    
+    <script>
+        // 서버에서 전달받은 데이터
+        const pageData = {
+            mode: /*[[${mode}]]*/ 'join',
+            roomId: /*[[${roomId}]]*/ null
+        };
+        
+        // 글자 수 카운터 업데이트
+        function updateCharCounter() {
+            const input = document.getElementById('nickname');
+            const counter = document.getElementById('charCounter');
+            const length = input.value.length;
+            
+            counter.textContent = `${length} / 20`;
+            
+            if (length > 18) {
+                counter.classList.add('danger');
+                counter.classList.remove('warning');
+            } else if (length > 15) {
+                counter.classList.add('warning');
+                counter.classList.remove('danger');
+            } else {
+                counter.classList.remove('warning', 'danger');
+            }
+        }
+        
+        // 폼 제출 처리
+        function submitForm(event) {
+            event.preventDefault();
+            
+            const nickname = document.getElementById('nickname').value.trim();
+            
+            // 유효성 검사
+            if (!nickname) {
+                showToast('닉네임을 입력해주세요', 'warning');
+                document.getElementById('nickname').focus();
+                return;
+            }
+            
+            if (nickname.length > 20) {
+                showToast('닉네임은 20자 이하로 입력해주세요', 'warning');
+                document.getElementById('nickname').focus();
+                return;
+            }
+            
+            // 특수문자 제한 (선택적)
+            if (!/^[가-힣a-zA-Z0-9\s_-]+$/.test(nickname)) {
+                showToast('닉네임에는 한글, 영문, 숫자, 공백, _, -만 사용할 수 있어요', 'warning');
+                document.getElementById('nickname').focus();
+                return;
+            }
+            
+            showLoading();
+            
+            // 모드에 따른 리다이렉트
+            if (pageData.mode === 'create') {
+                window.location.href = `/create?nickname=${encodeURIComponent(nickname)}`;
+            } else if (pageData.mode === 'join' && pageData.roomId) {
+                window.location.href = `/join/${encodeURIComponent(pageData.roomId)}?nickname=${encodeURIComponent(nickname)}`;
+            } else {
+                showToast('잘못된 접근입니다', 'danger');
+                hideLoading();
+            }
+        }
+        
+        // 뒤로가기
+        function goBack() {
+            if (pageData.mode === 'direct' && pageData.roomId) {
+                // 직접 방 링크로 온 경우
+                window.location.href = '/';
+            } else {
+                // 일반적인 경우
+                history.back();
+            }
+        }
+        
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            const nicknameInput = document.getElementById('nickname');
+            nicknameInput.focus();
+            
+            // 랜덤 닉네임 제안 (선택적)
+            const suggestions = [
+                '커피사랑', '밤올빼미', '새싹이', '구름타고', '별구경',
+                '책벌레', '음악광', '여행러', '꿈꾸는이', '자유인'
+            ];
+            
+            // 플레이스홀더에 랜덤 제안 표시
+            const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
+            nicknameInput.placeholder = `예: ${randomSuggestion}`;
+        });
+        
+        // 엔터키로 폼 제출
+        document.getElementById('nickname').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                submitForm(e);
+            }
+        });
+    </script>
+</body>
+</html>

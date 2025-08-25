@@ -52,9 +52,9 @@ public class LeaveRoomService implements LeaveRoomUseCase {
         Set<String> remainingMembers = roomService.getRoomMembers(request.roomId());
         
         // 4. 연결 해제인 경우 사용자 오프라인 처리
-        if ("disconnect".equals(request.reason()) || "timeout".equals(request.reason())) {
+        // if ("disconnect".equals(request.reason()) || "timeout".equals(request.reason())) {
             userService.markUserOffline(request.userId());
-        }
+        // }
         
         // 5. 응답 생성 (다른 멤버들에게 퇴장 알림용)
         return new LeaveRoomResponse(
@@ -64,8 +64,8 @@ public class LeaveRoomService implements LeaveRoomUseCase {
             remainingMembers.size(),
             room.isEmpty(),                     // 빈 방 여부
             room.isScheduledForDeletion(),      // TTL 적용 여부
-            LocalDateTime.now(),
-            request.reason()
+            LocalDateTime.now()
+            // request.reason()
         );
     }
 }

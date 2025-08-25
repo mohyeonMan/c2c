@@ -4,7 +4,9 @@ import com.c2c.c2c.domain.exception.MessageException;
 import com.c2c.c2c.domain.exception.RoomException;
 import com.c2c.c2c.domain.exception.UserException;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * Message 도메인 엔티티
@@ -27,6 +29,11 @@ public class Message {
     // 상수: 명세서의 "메시지 2KB 제한" 요구사항
     public static final int MAX_MESSAGE_SIZE_BYTES = 2048;
     
+    // 테스트용 간단 생성자
+    public Message(String fromUserId, String roomId, String text, LocalDateTime timestamp) {
+        this(UUID.randomUUID().toString(), null, roomId, fromUserId, text);
+    }
+    
     public Message(String messageId, String clientMsgId, String roomId, 
                    String fromUserId, String text) {
         
@@ -45,7 +52,7 @@ public class Message {
         }
         
         // 메시지 크기 검증 (명세서: "메시지 2KB 제한")
-        byte[] textBytes = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] textBytes = text.getBytes(StandardCharsets.UTF_8);
         if (textBytes.length > MAX_MESSAGE_SIZE_BYTES) {
             throw MessageException.messageTooLarge(textBytes.length, MAX_MESSAGE_SIZE_BYTES);
         }
@@ -91,6 +98,10 @@ public class Message {
     
     public String getRoomId() {
         return roomId;
+    }
+    
+    public String getUserId() {
+        return fromUserId;
     }
     
     public String getFromUserId() {

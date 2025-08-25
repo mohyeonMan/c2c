@@ -1,5 +1,7 @@
 package com.c2c.c2c.domain.port.in;
 
+import java.nio.charset.StandardCharsets;
+
 /**
  * 메시지 전송 Use Case 인바운드 포트
  * 
@@ -44,7 +46,7 @@ public interface SendMessageUseCase {
             }
             
             // 메시지 크기 사전 검증 (도메인에서 재검증)
-            byte[] textBytes = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            byte[] textBytes = text.getBytes(StandardCharsets.UTF_8);
             if (textBytes.length > 2048) {
                 throw new IllegalArgumentException("Message size exceeds 2KB limit");
             }

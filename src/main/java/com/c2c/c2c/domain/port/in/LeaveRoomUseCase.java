@@ -1,5 +1,8 @@
 package com.c2c.c2c.domain.port.in;
 
+import java.time.LocalDateTime;
+import java.util.Set;
+
 /**
  * 방 퇴장 Use Case 인바운드 포트
  * 
@@ -25,8 +28,8 @@ public interface LeaveRoomUseCase {
      */
     record LeaveRoomRequest(
         String roomId,      // 방 ID (필수)
-        String userId,      // 퇴장하는 사용자 ID (필수)
-        String reason       // 퇴장 사유 (선택적: "disconnect", "explicit", "timeout")
+        String userId      // 퇴장하는 사용자 ID (필수)
+        // String reason       // 퇴장 사유 (선택적: "disconnect", "explicit", "timeout")
     ) {
         /**
          * 요청 검증
@@ -48,11 +51,11 @@ public interface LeaveRoomUseCase {
     record LeaveRoomResponse(
         String roomId,              // 방 ID
         String userId,              // 퇴장한 사용자 ID
-        java.util.Set<String> remainingMembers,  // 남은 멤버 목록
+        Set<String> remainingMembers,  // 남은 멤버 목록
         int remainingMemberCount,   // 남은 멤버 수
         boolean roomEmpty,          // 방이 비어있게 되었는지
         boolean roomScheduledForDeletion,  // 5분 TTL 적용되었는지
-        java.time.LocalDateTime leftAt,    // 퇴장 시간
-        String reason               // 퇴장 사유
+        LocalDateTime leftAt    // 퇴장 시간
+        // String reason               // 퇴장 사유
     ) {}
 }

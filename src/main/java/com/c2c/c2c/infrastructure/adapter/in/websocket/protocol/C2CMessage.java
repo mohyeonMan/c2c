@@ -5,8 +5,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
-import org.springframework.web.socket.WebSocketMessage;
-
 /**
  * WebSocket 프로토콜 메시지 모델
  * 

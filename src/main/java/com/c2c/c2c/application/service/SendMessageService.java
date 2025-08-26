@@ -2,11 +2,11 @@ package com.c2c.c2c.application.service;
 
 import com.c2c.c2c.domain.model.Message;
 import com.c2c.c2c.domain.port.in.SendMessageUseCase;
-import com.c2c.c2c.domain.service.MessageService;
-import com.c2c.c2c.domain.service.RoomService;
+import com.c2c.c2c.domain.port.out.MessageBroker;
+import com.c2c.c2c.domain.port.out.RoomRepository;
 import org.springframework.stereotype.Service;
 
-import java.util.Set;
+import java.time.LocalDateTime;
 
 /**
  * 메시지 전송 Use Case 구현체
@@ -20,12 +20,12 @@ import java.util.Set;
 @Service
 public class SendMessageService implements SendMessageUseCase {
     
-    private final MessageService messageService;
-    private final RoomService roomService;
+    private final MessageBroker messageBroker;
+    private final RoomRepository roomRepository;
     
-    public SendMessageService(MessageService messageService, RoomService roomService) {
-        this.messageService = messageService;
-        this.roomService = roomService;
+    public SendMessageService(MessageBroker messageBroker, RoomRepository roomRepository) {
+        this.messageBroker = messageBroker;
+        this.roomRepository = roomRepository;
     }
     
     /**
@@ -43,25 +43,25 @@ public class SendMessageService implements SendMessageUseCase {
         // 1. 요청 검증
         request.validate();
         
-        // 2. 방 존재 확인 및 멤버 수 조회
-        Set<String> members = roomService.getRoomMembers(request.roomId());
+        // 2. 방 존재 확인
+        var room = roomRepository.findById(request.roomId())
+                .orElseThrow(() -> new RuntimeException("방을 찾을 수 없습니다: " + request.roomId()));
         
-        // 3. 메시지 전송 처리 (도메인 서비스)
-        // - Rate limiting 검증 (초당 5회 제한)
-        // - 중복 메시지 검증 (clientMsgId 기반)
-        // - 메시지 크기 검증 (2KB 제한)
-        // - Redis Pub/Sub 발행: PUBLISH chan:{roomId} message
-        Message message = messageService.sendMessage(
-            request.roomId(),
+        // 3. 메시지 객체 생성
+        Message message = new Message(
             request.fromUserId(),
+            request.roomId(),
             request.text(),
-            request.clientMsgId()
+            LocalDateTime.now()
         );
         
-        // 4. 수신자 수 계산 (발신자 제외)
-        int recipientCount = Math.max(0, members.size() - 1);
+        // 4. MessageBroker를 통해 메시지 발행 (다른 사용자들에게 전송)
+        messageBroker.publish(request.roomId(), message);
         
-        // 5. 응답 생성 (WebSocket 확인 응답용)
+        // 5. 수신자 수 계산 (발신자 제외)
+        int recipientCount = Math.max(0, room.getMemberCount() - 1);
+        
+        // 6. 응답 생성 (WebSocket 확인 응답용)
         return new SendMessageResponse(
             message.getMessageId(),
             message.getClientMsgId(),

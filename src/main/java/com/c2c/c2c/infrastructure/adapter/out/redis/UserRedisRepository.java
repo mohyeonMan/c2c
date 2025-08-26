@@ -40,19 +40,26 @@ public class UserRedisRepository implements UserRepository {
     
     @Override
     public User save(User user) {
-        String sessionKey = getSessionKey(user.getId());
+        String userId = user.getUserId();
+        String sessionKey = getSessionKey(userId);
         
         // 사용자 세션 정보 저장 (프레즌스보다 긴 TTL)
-        redisTemplate.opsForHash().put(sessionKey, "userId", user.getId());
-        redisTemplate.opsForHash().put(sessionKey, "sessionId", user.getSessionId());
-        redisTemplate.opsForHash().put(sessionKey, "roomId", user.getRoomId());
-        redisTemplate.opsForHash().put(sessionKey, "joinedAt", user.getJoinedAt().toString());
+        redisTemplate.opsForHash().put(sessionKey, "userId", userId);
+        if (user.getSessionId() != null) {
+            redisTemplate.opsForHash().put(sessionKey, "sessionId", user.getSessionId());
+        }
+        if (user.getRoomId() != null) {
+            redisTemplate.opsForHash().put(sessionKey, "roomId", user.getRoomId());
+        }
+        if (user.getJoinedAt() != null) {
+            redisTemplate.opsForHash().put(sessionKey, "joinedAt", user.getJoinedAt().toString());
+        }
         
         // 세션 키에 TTL 설정 (프레즌스보다 길게 설정)
         redisTemplate.expire(sessionKey, Duration.ofMinutes(10));
         
         // 프레즌스 업데이트
-        updatePresence(user.getId());
+        updatePresence(userId);
         
         return user;
     }

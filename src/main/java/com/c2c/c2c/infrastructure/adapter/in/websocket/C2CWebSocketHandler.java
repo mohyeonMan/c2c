@@ -7,8 +7,6 @@ import com.c2c.c2c.domain.port.in.ProcessHeartbeatUseCase.HeartbeatRequest;
 import com.c2c.c2c.domain.port.in.SendMessageUseCase.SendMessageRequest;
 import com.c2c.c2c.application.service.*;
 import com.c2c.c2c.domain.exception.C2CException;
-import com.c2c.c2c.domain.model.Message;
-import com.c2c.c2c.domain.model.User;
 import com.c2c.c2c.domain.port.out.MessageBroker;
 import com.c2c.c2c.infrastructure.adapter.in.websocket.protocol.*;
 
@@ -17,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -72,7 +69,7 @@ public class C2CWebSocketHandler implements WebSocketHandler {
     }
     
     @Override
-    public void handleMessage(WebSocketSession session, WebSocketMessage message) throws Exception {
+    public void handleMessage(WebSocketSession session, WebSocketMessage<?> message) throws Exception {
         if (message instanceof TextMessage textMessage) {
             handleTextMessage(session, textMessage);
         } else {
@@ -87,11 +84,13 @@ public class C2CWebSocketHandler implements WebSocketHandler {
     private void handleTextMessage(WebSocketSession session, TextMessage textMessage) {
         try {
             String payload = textMessage.getPayload();
-            logger.debug("Received message: sessionId={}, payload={}", session.getId(), payload);
+            logger.info("Received message: sessionId={}, payload={}", session.getId(), payload); 
             
             // JSON 프로토콜 파싱
             C2CMessage wsMessage = protocolParser.parse(payload);
             MessageType messageType = MessageType.fromValue(wsMessage.getType());
+             
+
             
             // 메시지 타입별 처리
             switch (messageType) {
@@ -103,6 +102,7 @@ public class C2CWebSocketHandler implements WebSocketHandler {
                     logger.warn("Unsupported message type from client: {}", messageType);
                     sendErrorMessage(session, "UNSUPPORTED_MESSAGE", "클라이언트에서 지원하지 않는 메시지 타입입니다");
                 }
+
             }
             
         } catch (ProtocolParser.ProtocolParseException e) {
@@ -186,16 +186,13 @@ public class C2CWebSocketHandler implements WebSocketHandler {
                 return;
             }
             
-            // 도메인 메시지 생성
-            Message message = new Message(userId, roomId, text, LocalDateTime.now());
+            // 도메인 서비스 호출 (Message 생성 및 브로커 발행은 서비스 내에서 처리)
+            var sendRequest = new SendMessageRequest(roomId, userId, text, null);
+            var sendResponse = sendMessageService.sendMessage(sendRequest);
             
-            // 도메인 서비스 호출
-            sendMessageService.sendMessage(new SendMessageRequest(roomId, userId, text, message.getClientMsgId()));
-            
-            // 메시지 브로커로 발행 (같은 방의 다른 사용자들에게 전달)
-            messageBroker.publish(roomId, message);
-            
-            logger.debug("Message sent: userId={}, roomId={}, text={}", userId, roomId, text);
+            // 메시지 전송 성공 로깅
+            logger.debug("Message sent successfully: messageId={}, userId={}, roomId={}, text={}", 
+                        sendResponse.messageId(), userId, roomId, text);
             
         } catch (Exception e) {
             logger.error("Error handling message send: sessionId={}", session.getId(), e);
@@ -252,7 +249,7 @@ public class C2CWebSocketHandler implements WebSocketHandler {
     private void processUserLeave(String userId, String roomId) {
         try {
             // 도메인 서비스 호출
-            leaveRoomService.leaveRoom(new LeaveRoomUseCase.LeaveRoomRequest(roomId, userId));            
+            leaveRoomService.leaveRoom(new LeaveRoomUseCase.LeaveRoomRequest(roomId, userId, "explicit"));            
             // 세션 정리
             sessionManager.removeUserSession(userId);
             

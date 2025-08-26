@@ -3,13 +3,12 @@ package com.c2c.c2c.application.service;
 import com.c2c.c2c.domain.model.Room;
 import com.c2c.c2c.domain.model.User;
 import com.c2c.c2c.domain.port.in.JoinRoomUseCase;
-import com.c2c.c2c.domain.service.RoomService;
-import com.c2c.c2c.domain.service.UserService;
+import com.c2c.c2c.domain.port.out.RoomRepository;
+import com.c2c.c2c.domain.port.out.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Set;
 
 /**
  * 방 입장 Use Case 구현체
@@ -23,12 +22,12 @@ import java.util.Set;
 @Transactional
 public class JoinRoomService implements JoinRoomUseCase {
     
-    private final RoomService roomService;
-    private final UserService userService;
+    private final RoomRepository roomRepository;
+    private final UserRepository userRepository;
     
-    public JoinRoomService(RoomService roomService, UserService userService) {
-        this.roomService = roomService;
-        this.userService = userService;
+    public JoinRoomService(RoomRepository roomRepository, UserRepository userRepository) {
+        this.roomRepository = roomRepository;
+        this.userRepository = userRepository;
     }
     
     /**
@@ -45,28 +44,27 @@ public class JoinRoomService implements JoinRoomUseCase {
         // 1. 요청 검증
         request.validate();
         
-        // 2. 사용자 등록 및 프레즌스 설정
-        // Redis: SETEX user:{userId}:presence 30 online
-        User user = userService.registerUser(request.userId(), request.nickname(), request.emoji());
+        // 2. 사용자 등록
+        User user = new User(request.userId(), request.nickname(), request.emoji());
+        userRepository.save(user);
         
-        // 3. 방 정보 조회 (입장 전 상태 확인)
-        boolean wasEmpty = !roomService.roomExists(request.roomId()) || 
-                          roomService.getRoomMembers(request.roomId()).isEmpty();
+        // 3. 방 조회 또는 생성
+        Room room = roomRepository.findById(request.roomId())
+                .orElseThrow(() -> new RuntimeException("방을 찾을 수 없습니다: " + request.roomId()));
         
-        // 4. 방 입장 처리
-        // additionalPlan.txt: "원자적 빈 방 전이" - 재입장 시 PERSIST 처리 포함
-        Room room = roomService.joinRoom(request.roomId(), request.userId());
+        boolean wasEmpty = room.isEmpty();
         
-        // 5. 현재 방 멤버 목록 조회 (Redis 기반)
-        Set<String> members = roomService.getRoomMembers(request.roomId());
+        // 4. 방에 사용자 추가
+        room.addMember(request.userId());
+        roomRepository.save(room);
         
-        // 6. 응답 생성
+        // 5. 응답 생성
         return new JoinRoomResponse(
             request.roomId(),
             request.userId(),
             user.getDisplayName(),
-            members,
-            members.size(),
+            room.getMembers(),
+            room.getMemberCount(),
             wasEmpty,
             LocalDateTime.now()
         );

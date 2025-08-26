@@ -1,7 +1,7 @@
 package com.c2c.c2c.application.service;
 
 import com.c2c.c2c.domain.port.in.ProcessHeartbeatUseCase;
-import com.c2c.c2c.domain.service.UserService;
+import com.c2c.c2c.infrastructure.adapter.out.redis.UserRedisRepository;
 import org.springframework.stereotype.Service;
 
 /**
@@ -15,10 +15,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class ProcessHeartbeatService implements ProcessHeartbeatUseCase {
     
-    private final UserService userService;
+    private final UserRedisRepository userRedisRepository;
     
-    public ProcessHeartbeatService(UserService userService) {
-        this.userService = userService;
+    public ProcessHeartbeatService(UserRedisRepository userRedisRepository) {
+        this.userRedisRepository = userRedisRepository;
     }
     
     /**
@@ -36,14 +36,14 @@ public class ProcessHeartbeatService implements ProcessHeartbeatUseCase {
         
         // 2. 프레즌스 갱신
         // Redis: SETEX user:{userId}:presence 30 online
-        userService.processHeartbeat(request.userId());
+        userRedisRepository.updatePresence(request.userId());
         
         // 3. 서버 타임스탬프 및 설정값 응답
         return new HeartbeatResponse(
             request.userId(),
             System.currentTimeMillis(),
             true,  // processHeartbeat 성공 시 온라인 상태
-            userService.getHeartbeatInterval()  // 10초 간격 반환
+            10  // 10초 간격 반환 (하드코딩)
         );
     }
 }

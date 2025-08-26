@@ -6,7 +6,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.UUID;
 
 /**
  * C2C MVP 웹 컨트롤러
@@ -46,38 +45,25 @@ public class WebController {
             model.addAttribute("roomId", roomId);
             model.addAttribute("mode", "join");
             return "nickname";
+
         }
         
         // 닉네임이 있으면 채팅방으로
         model.addAttribute("roomId", roomId);
         model.addAttribute("nickname", nickname.trim());
         model.addAttribute("mode", "join");
+
         return "chat";
     }
     
     /**
-     * 채팅방 생성 페이지
-     * URL: /create?nickname={nickname}
-     * 
-     * C2C 컨셉: 새로운 방 생성 후 바로 입장
+     * 채팅방 생성 페이지 (닉네임 입력만)
+     * URL: /create
      */
     @GetMapping("/create")
-    public String createRoom(@RequestParam(required = false) String nickname,
-                            Model model) {
-        
-        // 닉네임이 없으면 입력 페이지로
-        if (nickname == null || nickname.trim().isEmpty()) {
-            model.addAttribute("mode", "create");
-            return "nickname";
-        }
-        
-        // 새 방 ID 생성 (UUID 기반)
-        String roomId = generateRoomId();
-        
-        model.addAttribute("roomId", roomId);
-        model.addAttribute("nickname", nickname.trim());
+    public String createRoom(Model model) {
         model.addAttribute("mode", "create");
-        return "chat";
+        return "nickname";
     }
     
     /**
@@ -100,16 +86,4 @@ public class WebController {
         return "health";
     }
     
-    // === 헬퍼 메서드 ===
-    
-    /**
-     * 새 방 ID 생성
-     * 형식: 8자리 랜덤 문자열 (URL 친화적)
-     */
-    private String generateRoomId() {
-        return UUID.randomUUID().toString()
-                .replace("-", "")
-                .substring(0, 8)
-                .toLowerCase();
-    }
 }

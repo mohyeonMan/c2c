@@ -50,6 +50,7 @@ dependencies {
 	// 설정 프로퍼티 자동완성: 환경변수 매핑용 (REDIS_URL, HEARTBEAT_INTERVAL_MS 등)
 	implementation 'org.springframework.boot:spring-boot-configuration-processor'
 	
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	// Testing
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webflux' // WebTestClient용

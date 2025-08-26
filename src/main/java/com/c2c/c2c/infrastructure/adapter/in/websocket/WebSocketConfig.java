@@ -23,11 +23,10 @@ public class WebSocketConfig implements WebSocketConfigurer {
     public WebSocketConfig(C2CWebSocketHandler webSocketHandler) {
         this.webSocketHandler = webSocketHandler;
     }
-    
+      
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(webSocketHandler, "/ws")
-                .setAllowedOrigins("*") // TODO: 실제 운영환경에서는 특정 도메인으로 제한
-                .withSockJS(); // SockJS 폴백 지원
+                .setAllowedOriginPatterns("*"); // CORS 문제 해결: allowedOriginPatterns 사용
     }
 }

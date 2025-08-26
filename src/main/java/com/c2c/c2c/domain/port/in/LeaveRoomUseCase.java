@@ -28,8 +28,8 @@ public interface LeaveRoomUseCase {
      */
     record LeaveRoomRequest(
         String roomId,      // 방 ID (필수)
-        String userId      // 퇴장하는 사용자 ID (필수)
-        // String reason       // 퇴장 사유 (선택적: "disconnect", "explicit", "timeout")
+        String userId,      // 퇴장하는 사용자 ID (필수)
+        String reason       // 퇴장 사유 (선택적: "disconnect", "explicit", "timeout")
     ) {
         /**
          * 요청 검증
@@ -55,7 +55,7 @@ public interface LeaveRoomUseCase {
         int remainingMemberCount,   // 남은 멤버 수
         boolean roomEmpty,          // 방이 비어있게 되었는지
         boolean roomScheduledForDeletion,  // 5분 TTL 적용되었는지
-        LocalDateTime leftAt    // 퇴장 시간
-        // String reason               // 퇴장 사유
+        LocalDateTime leftAt,    // 퇴장 시간
+        String reason               // 퇴장 사유
     ) {}
 }

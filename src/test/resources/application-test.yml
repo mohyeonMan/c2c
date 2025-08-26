@@ -9,7 +9,7 @@ spring:
     
   # TestContainers를 통한 동적 설정 (실제 값은 테스트에서 동적 할당)
   datasource:
-    url: jdbc:postgresql://localhost:5432/c2c_test
+    url: jdbc:postgresql://localhost:5431/c2c_test
     username: test
     password: test
     driver-class-name: org.postgresql.Driver

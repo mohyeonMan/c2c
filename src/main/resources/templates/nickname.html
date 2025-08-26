@@ -6,7 +6,7 @@
     <title>닉네임 입력 - C2C</title>
     
     <!-- 레이아웃 CSS 포함 -->
-    <th:block th:include="layout :: head"></th:block>
+    <th:block th:include="~{layout :: head}"></th:block>
     
     <style>
         /* 닉네임 페이지 전용 스타일 */
@@ -119,6 +119,12 @@
     </style>
 </head>
 <body>
+    <!-- 로딩 바 -->
+    <div class="loading-bar" id="loadingBar"></div>
+    
+    <!-- 토스트 알림 -->
+    <div class="toast" id="toast"></div>
+    
     <div class="container">
         <div class="nickname-container">
             <!-- 헤더 -->
@@ -169,6 +175,8 @@
     </div>
     
     <script>
+        // C2C 공통 모듈 사용
+        
         // 서버에서 전달받은 데이터
         const pageData = {
             mode: /*[[${mode}]]*/ 'join',
@@ -195,41 +203,43 @@
         }
         
         // 폼 제출 처리
-        function submitForm(event) {
+        async function submitForm(event) {
             event.preventDefault();
             
-            const nickname = document.getElementById('nickname').value.trim();
+            const nickname = document.getElementById('nickname').value;
             
-            // 유효성 검사
-            if (!nickname) {
-                showToast('닉네임을 입력해주세요', 'warning');
+            // 공통 모듈의 검증 사용
+            const validation = C2C.validation.validateNickname(nickname);
+            if (!validation.valid) {
+                C2C.ui.showToast(validation.message, 'warning');
                 document.getElementById('nickname').focus();
                 return;
             }
             
-            if (nickname.length > 20) {
-                showToast('닉네임은 20자 이하로 입력해주세요', 'warning');
-                document.getElementById('nickname').focus();
-                return;
-            }
+            C2C.ui.showLoading();
             
-            // 특수문자 제한 (선택적)
-            if (!/^[가-힣a-zA-Z0-9\s_-]+$/.test(nickname)) {
-                showToast('닉네임에는 한글, 영문, 숫자, 공백, _, -만 사용할 수 있어요', 'warning');
-                document.getElementById('nickname').focus();
-                return;
-            }
-            
-            showLoading();
-            
-            // 모드에 따른 리다이렉트
+            // 모드에 따른 처리
             if (pageData.mode === 'create') {
-                window.location.href = `/create?nickname=${encodeURIComponent(nickname)}`;
+                await createRoomAndJoin(validation.value);
             } else if (pageData.mode === 'join' && pageData.roomId) {
-                window.location.href = `/join/${encodeURIComponent(pageData.roomId)}?nickname=${encodeURIComponent(nickname)}`;
+                window.location.href = `/join/${encodeURIComponent(pageData.roomId)}?nickname=${encodeURIComponent(validation.value)}`;
             } else {
-                showToast('잘못된 접근입니다', 'danger');
-                hideLoading();
+                C2C.ui.showToast('잘못된 접근입니다', 'danger');
+                C2C.ui.hideLoading();
+            }
+        }
+        
+        // 방 생성 및 입장
+        async function createRoomAndJoin(nickname) {
+            const result = await C2C.api.createRoom(nickname);
+            
+            if (result.success) {
+                // 생성된 방으로 직접 이동 (새로고침 안전)
+                window.location.href = `/chat/${result.data.roomId}?nickname=${encodeURIComponent(nickname)}`;
+            } else {
+                console.error('방 생성 오류:', result.error);
+                C2C.ui.showToast(result.error || '방 생성 중 오류가 발생했습니다', 'danger');
+                C2C.ui.hideLoading();
             }
         }
         

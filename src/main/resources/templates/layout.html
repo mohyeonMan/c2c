@@ -238,35 +238,8 @@
         </main>
     </div>
     
-    <!-- 공통 JavaScript -->
-    <script>
-        // 토스트 메시지 표시 함수 (명세서: 2초 자동 사라짐)
-        function showToast(message, type = 'default') {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.className = `toast ${type}`;
-            toast.classList.add('show');
-            
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 2000);
-        }
-        
-        // 로딩 바 제어
-        function showLoading() {
-            document.getElementById('loadingBar').classList.add('active');
-        }
-        
-        function hideLoading() {
-            document.getElementById('loadingBar').classList.remove('active');
-        }
-        
-        // 페이지별 초기화
-        document.addEventListener('DOMContentLoaded', function() {
-            // 기본 로딩 완료 후 로딩 바 숨김
-            hideLoading();
-        });
-    </script>
+    <!-- C2C 공통 JavaScript 모듈 -->
+    <script src="/js/c2c-common.js"></script>
     
     <!-- 페이지별 추가 JavaScript -->
     <th:block th:fragment="extra-js"></th:block>

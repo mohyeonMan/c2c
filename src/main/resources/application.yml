@@ -8,9 +8,15 @@ spring:
   application:
     name: c2c-mvp
   
+  thymeleaf:
+    cache: false     # 템플릿 즉시 반영
+  devtools:
+    livereload:
+      enabled: true  # 기본 true, 확인차 명시
+      
   # PostgreSQL 설정 (Docker Compose 서비스명 사용)
   datasource:
-    url: jdbc:postgresql://postgres:5432/c2c
+    url: jdbc:postgresql://localhost:5431/c2c
     username: c2c
     password: c2c123
     driver-class-name: org.postgresql.Driver
@@ -47,7 +53,7 @@ spring:
 c2c:
   # Redis 설정
   redis:
-    url: redis://redis:6379
+    url: redis://localhost:6379
   
   # 하트비트 설정
   heartbeat:
@@ -77,6 +83,9 @@ logging:
     org.springframework.web.socket: INFO
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    # Chrome DevTools 관련 정적 리소스 요청 무시
+    org.springframework.web.servlet.resource.ResourceHttpRequestHandler: WARN
+    org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver: ERROR
   pattern:
     console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

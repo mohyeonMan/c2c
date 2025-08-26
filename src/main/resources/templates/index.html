@@ -6,7 +6,7 @@
     <title>C2C - Cup2Cup</title>
     
     <!-- 레이아웃 CSS 포함 -->
-    <th:block th:include="layout :: head"></th:block>
+    <th:block th:replace="~{layout :: head}"></th:block>
     
     <style>
         /* 메인 페이지 전용 스타일 */
@@ -227,7 +227,15 @@
         </div>
     </div>
     
+    <!-- 로딩 바 -->
+    <div class="loading-bar" id="loadingBar"></div>
+    
+    <!-- 토스트 알림 -->
+    <div class="toast" id="toast"></div>
+    
     <script>
+        // C2C 공통 모듈 사용
+        
         // UI 상태 관리
         function showCreateForm() {
             document.getElementById('createCard').classList.add('hidden');
@@ -251,55 +259,60 @@
         }
         
         // 새 채팅방 만들기
-        function createRoom(event) {
+        async function createRoom(event) {
             event.preventDefault();
             
-            const nickname = document.getElementById('createNickname').value.trim();
-            if (!nickname) {
-                showToast('닉네임을 입력해주세요', 'warning');
+            const nickname = document.getElementById('createNickname').value;
+            
+            // 공통 모듈의 검증 사용
+            const validation = C2C.validation.validateNickname(nickname);
+            if (!validation.valid) {
+                C2C.ui.showToast(validation.message, 'warning');
                 return;
             }
             
-            if (nickname.length > 20) {
-                showToast('닉네임은 20자 이하로 입력해주세요', 'warning');
-                return;
-            }
+            C2C.ui.showLoading();
             
-            showLoading();
-            // 서버로 리다이렉트
-            window.location.href = `/create?nickname=${encodeURIComponent(nickname)}`;
+            // API를 통한 방 생성
+            const result = await C2C.api.createRoom(validation.value);
+            
+            if (result.success) {
+                // 생성된 방으로 직접 이동
+                window.location.href = `/chat/${result.data.roomId}?nickname=${encodeURIComponent(validation.value)}`;
+            } else {
+                C2C.ui.hideLoading();
+                C2C.ui.showToast(result.error || '방 생성 중 오류가 발생했습니다', 'danger');
+            }
         }
         
         // 채팅방 참여하기
         function joinRoom(event) {
             event.preventDefault();
             
-            const roomId = document.getElementById('roomId').value.trim();
-            const nickname = document.getElementById('joinNickname').value.trim();
+            const roomId = document.getElementById('roomId').value;
+            const nickname = document.getElementById('joinNickname').value;
             
-            if (!roomId) {
-                showToast('방 코드를 입력해주세요', 'warning');
+            // 공통 모듈의 검증 사용
+            const roomValidation = C2C.validation.validateRoomId(roomId);
+            if (!roomValidation.valid) {
+                C2C.ui.showToast(roomValidation.message, 'warning');
                 return;
             }
             
-            if (!nickname) {
-                showToast('닉네임을 입력해주세요', 'warning');
+            const nicknameValidation = C2C.validation.validateNickname(nickname);
+            if (!nicknameValidation.valid) {
+                C2C.ui.showToast(nicknameValidation.message, 'warning');
                 return;
             }
             
-            if (nickname.length > 20) {
-                showToast('닉네임은 20자 이하로 입력해주세요', 'warning');
-                return;
-            }
-            
-            showLoading();
+            C2C.ui.showLoading();
             // 서버로 리다이렉트
-            window.location.href = `/join/${encodeURIComponent(roomId)}?nickname=${encodeURIComponent(nickname)}`;
+            window.location.href = `/join/${encodeURIComponent(roomValidation.value)}?nickname=${encodeURIComponent(nicknameValidation.value)}`;
         }
         
         // URL에서 방 코드 자동 입력 (초대 링크 지원)
         document.addEventListener('DOMContentLoaded', function() {
-            const urlParams = new URLSearchParams(window.location.search);
+            const urlParams = C2C.utils.getUrlParams();
             const roomFromUrl = urlParams.get('room');
             
             if (roomFromUrl) {

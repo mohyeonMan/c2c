@@ -35,6 +35,13 @@ public class Room {
         this.isScheduledForDeletion = false;
     }
     
+    public Room(String roomId, String creatorName) {
+        this(roomId);
+        if (creatorName != null && !creatorName.trim().isEmpty()) {
+            addMember(creatorName.trim());
+        }
+    }
+    
     /**
      * 멤버 추가
      * 비즈니스 룰: "5분 내 재입장 시 PERSIST" - 삭제 예약 취소

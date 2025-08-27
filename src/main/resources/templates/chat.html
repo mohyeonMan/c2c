@@ -431,6 +431,9 @@
         </div>
     </div>
     
+    <!-- C2C 공통 JavaScript 모듈 로드 -->
+    <script src="/js/c2c-common.js"></script>
+    
     <!-- 채팅 페이지 전용 JavaScript -->
     <script src="/js/chat-page.js"></script>
     
@@ -441,6 +444,37 @@
             nickname: /*[[${nickname}]]*/ '',
             mode: /*[[${mode}]]*/ 'join'
         };
+        
+        // HTML에서 호출되는 전역 함수들
+        function handleInput() {
+            if (window.chatPage) {
+                window.chatPage.handleMessageInput();
+            }
+        }
+        
+        function handleKeyDown(event) {
+            if (window.chatPage) {
+                window.chatPage.handleKeyDown(event);
+            }
+        }
+        
+        function sendMessage() {
+            if (window.chatPage) {
+                window.chatPage.sendMessage();
+            }
+        }
+        
+        function copyInviteLink() {
+            if (window.chatPage) {
+                window.chatPage.copyInviteLink();
+            }
+        }
+        
+        function leaveRoom() {
+            if (window.chatPage) {
+                window.chatPage.leaveRoom();
+            }
+        }
     </script>
 </body>
 </html>

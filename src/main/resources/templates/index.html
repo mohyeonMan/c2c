@@ -233,8 +233,39 @@
     <!-- 토스트 알림 -->
     <div class="toast" id="toast"></div>
     
+    <!-- C2C 공통 JavaScript 모듈 로드 -->
+    <script src="/js/c2c-common.js"></script>
+    
     <script>
-        // C2C 공통 모듈 사용
+        // C2C 공통 모듈 로드 확인
+        console.log('index.html 스크립트 시작');
+        console.log('C2C 모듈 상태:', typeof C2C);
+        
+        // 모듈이 로드될 때까지 대기
+        function waitForC2C() {
+            return new Promise((resolve) => {
+                if (typeof C2C !== 'undefined') {
+                    console.log('C2C 모듈이 즉시 사용 가능합니다');
+                    resolve();
+                } else {
+                    console.log('C2C 모듈을 기다리는 중...');
+                    const checkInterval = setInterval(() => {
+                        if (typeof C2C !== 'undefined') {
+                            console.log('C2C 모듈이 로드되었습니다');
+                            clearInterval(checkInterval);
+                            resolve();
+                        }
+                    }, 50);
+                    
+                    // 5초 후 타임아웃
+                    setTimeout(() => {
+                        clearInterval(checkInterval);
+                        console.error('C2C 모듈 로드 타임아웃');
+                        resolve(); // 타임아웃되어도 계속 진행
+                    }, 5000);
+                }
+            });
+        }
         
         // UI 상태 관리
         function showCreateForm() {
@@ -262,26 +293,50 @@
         async function createRoom(event) {
             event.preventDefault();
             
-            const nickname = document.getElementById('createNickname').value;
-            
-            // 공통 모듈의 검증 사용
-            const validation = C2C.validation.validateNickname(nickname);
-            if (!validation.valid) {
-                C2C.ui.showToast(validation.message, 'warning');
-                return;
-            }
-            
-            C2C.ui.showLoading();
-            
-            // API를 통한 방 생성
-            const result = await C2C.api.createRoom(validation.value);
-            
-            if (result.success) {
-                // 생성된 방으로 직접 이동
-                window.location.href = `/chat/${result.data.roomId}?nickname=${encodeURIComponent(validation.value)}`;
-            } else {
-                C2C.ui.hideLoading();
-                C2C.ui.showToast(result.error || '방 생성 중 오류가 발생했습니다', 'danger');
+            try {
+                const nickname = document.getElementById('createNickname').value;
+                console.log('방 생성 시작:', nickname);
+                
+                // C2C 모듈이 로드될 때까지 대기
+                await waitForC2C();
+                
+                // C2C 모듈 존재 확인
+                if (typeof C2C === 'undefined') {
+                    console.error('C2C 모듈이 로드되지 않았습니다');
+                    alert('C2C 모듈을 로드할 수 없습니다. 페이지를 새로고침해주세요.');
+                    return;
+                }
+                
+                // 공통 모듈의 검증 사용
+                const validation = C2C.validation.validateNickname(nickname);
+                if (!validation.valid) {
+                    C2C.ui.showToast(validation.message, 'warning');
+                    return;
+                }
+                
+                C2C.ui.showLoading();
+                
+                // API를 통한 방 생성
+                console.log('API 호출 중...');
+                const result = await C2C.api.createRoom(validation.value);
+                console.log('API 응답:', result);
+                
+                if (result.success) {
+                    console.log('방 생성 성공, 리다이렉트 중...');
+                    // 생성된 방으로 직접 이동
+                    window.location.href = `/chat/${result.data.roomId}?nickname=${encodeURIComponent(validation.value)}`;
+                } else {
+                    C2C.ui.hideLoading();
+                    C2C.ui.showToast(result.error || '방 생성 중 오류가 발생했습니다', 'danger');
+                }
+            } catch (error) {
+                console.error('방 생성 중 오류:', error);
+                if (typeof C2C !== 'undefined' && C2C.ui) {
+                    C2C.ui.hideLoading();
+                    C2C.ui.showToast('방 생성 중 오류가 발생했습니다', 'danger');
+                } else {
+                    alert('방 생성 중 오류가 발생했습니다: ' + error.message);
+                }
             }
         }
         

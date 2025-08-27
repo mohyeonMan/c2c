@@ -375,22 +375,7 @@ class ChatPage {
     }
 }
 
-// 전역 함수들 (HTML에서 호출용)
-let chatPage;
-
-function copyInviteLink() {
-    if (chatPage) {
-        chatPage.copyInviteLink();
-    }
-}
-
-function leaveRoom() {
-    if (chatPage) {
-        chatPage.leaveRoom();
-    }
-}
-
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', function() {
-    chatPage = new ChatPage();
+    window.chatPage = new ChatPage();
 });

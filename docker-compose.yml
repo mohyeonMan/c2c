@@ -40,23 +40,23 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  c2c-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: c2c-app
-    ports:
-      - "8080:8080"
-    volumes:
-      # ⬇️ devcontainer.json의 workspaceFolder와 일치
-      - .:/workspace:cached
-    networks: [c2c-network]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: sleep infinity
+  # c2c-app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: c2c-app
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     # ⬇️ devcontainer.json의 workspaceFolder와 일치
+  #     - .:/workspace:cached
+  #   networks: [c2c-network]
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   command: sleep infinity
 
 networks:
   c2c-network:

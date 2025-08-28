@@ -1,0 +1,571 @@
+# 🏗️ C2C 프로젝트 전방위 재설계 계획
+
+풀스택 개발자 관점에서 현재 문제들을 근본적으로 해결하고 실제 작동하는 시스템을 구축하기 위한 종합 계획입니다.
+
+작성일: 2025-08-28
+작성자: SuperClaude AI Assistant
+프로젝트: C2C (Cup2Cup) - 실시간 채팅 시스템
+
+## 📋 목차
+1. 현재 아키텍처 문제점 분석 & 개선 방향
+2. 데이터 플로우 & Redis 통합 전략
+3. Frontend-Backend API 계약
+4. WebSocket 실시간 통신 아키텍처
+5. 오류 처리 & 복구 전략
+6. 테스팅 & 배포 전략
+7. 단계별 실행 로드맵
+
+---
+
+## 1. 현재 아키텍처 문제점 분석 & 개선 방향 🔍
+
+### 🚨 근본 문제들
+
+**1. 이중 상태 관리 문제**
+```java
+// 현재 잘못된 구조
+Room room = new Room(roomId, creatorName);  // ← Java 메모리에 상태
+roomRepository.save(room);                  // ← Redis에는 저장 안함
+// 결과: Java 객체와 Redis 상태가 다름!
+```
+
+**2. 추상화 레벨 혼재**
+```java
+// Repository가 실제로 저장하지 않음
+public Room save(Room room) {
+    return room; // ← 이게 무슨 의미인가?
+}
+```
+
+**3. 비즈니스 플로우와 데이터 저장의 분리 부족**
+
+### ✅ 올바른 아키텍처 설계
+
+**Redis-First Architecture 채택**
+- Redis = Single Source of Truth
+- Domain 객체 = 순수 DTO/Validation 역할만
+- Repository = Redis 직접 조작
+- Use Case = 비즈니스 플로우 + Redis 상태 관리
+
+---
+
+## 2. 데이터 플로우 & Redis 통합 전략 📊
+
+### 🎯 올바른 Redis 키 구조 (명세서 준수)
+```redis
+# 방 멤버 관리
+room:{roomId}:members          # SET - 방 멤버 목록
+
+# 사용자 프레즌스 (하트비트 기반)
+user:{userId}:presence         # STRING, TTL=30s - 온라인 상태
+user:{userId}:session          # HASH, TTL=10m - 세션 정보
+
+# 실시간 메시징
+chan:{roomId}                  # PUB/SUB - 메시지 브로드캐스트
+
+# PostgreSQL은 에러 정보만
+error_info                     # TABLE - 다국어 오류 메시지
+```
+
+### ⚡ 핵심 데이터 플로우
+
+**방 생성 (수정된 올바른 플로우)**
+```
+Frontend → POST /api/rooms {"creatorName": "user1"}
+↓
+CreateRoomService.createRoom()
+├─ roomId = generateRoomId()
+├─ Redis: SADD room:{roomId}:members user1
+├─ Redis: SETEX user:user1:presence 30 "online"  
+└─ Redis: HMSET user:user1:session roomId {roomId} joinedAt {now}
+↓
+Response: {"success": true, "data": {"roomId": "abc12345"}}
+```
+
+**방 참여 (WebSocket 기반)**
+```
+WebSocket: {"t":"join", "roomId":"abc12345", "token":"user2"}
+↓
+JoinRoomService.joinRoom()
+├─ Redis: EXISTS room:{roomId}:members (방 존재 확인)
+├─ Redis: SADD room:{roomId}:members user2
+├─ Redis: PERSIST room:{roomId}:members (TTL 해제)
+├─ Redis: SETEX user:user2:presence 30 "online"
+└─ Redis: PUBLISH chan:{roomId} {"type":"joined", "userId":"user2"}
+↓
+WebSocket Response: {"t":"joined", "roomId":"abc12345", "me":"user2", "members":["user1","user2"]}
+```
+
+---
+
+## 3. Frontend-Backend API 계약 📡
+
+### 🔌 REST API 명세
+
+**방 생성 API**
+```http
+POST /api/rooms
+Content-Type: application/json
+
+Request:
+{
+  "creatorName": "홍길동"
+}
+
+Response (201 Created):
+{
+  "success": true,
+  "data": {
+    "roomId": "abc12345"
+  },
+  "message": "채팅방이 생성되었습니다"
+}
+```
+
+**방 정보 조회 API**
+```http
+GET /api/rooms/{roomId}
+
+Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "roomId": "abc12345",
+    "status": "active",
+    "memberCount": 2,
+    "members": ["user1", "user2"]
+  }
+}
+```
+
+### 📱 표준화된 응답 포맷
+```json
+{
+  "success": boolean,
+  "data": any | null,
+  "message": string | null,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "사용자 친화적 메시지",
+    "details": {} // 개발용 상세 정보
+  } | null,
+  "timestamp": "2025-01-XX 00:00:00Z"
+}
+```
+
+---
+
+## 4. WebSocket 실시간 통신 아키텍처 🔄
+
+### 💬 WebSocket 프로토콜 (명세서 기준)
+
+**클라이언트 → 서버 메시지**
+```json
+// 방 입장
+{"t": "join", "roomId": "abc12345", "token": "user_token"}
+
+// 채팅 메시지
+{"t": "msg", "roomId": "abc12345", "text": "안녕하세요"}
+
+// 하트비트 (10초 간격)
+{"t": "ping"}
+
+// 방 퇴장
+{"t": "leave", "roomId": "abc12345"}
+```
+
+**서버 → 클라이언트 메시지**
+```json
+// 입장 성공
+{"t": "joined", "roomId": "abc12345", "me": "user1", "members": ["user1", "user2"]}
+
+// 채팅 메시지 수신
+{"t": "msg", "roomId": "abc12345", "from": "user2", "text": "안녕하세요", "timestamp": "2025-01-XX"}
+
+// 하트비트 응답
+{"t": "pong"}
+
+// 사용자 입장 알림
+{"t": "user_joined", "roomId": "abc12345", "userId": "user3"}
+
+// 오류 응답
+{"t": "error", "code": "ROOM_NOT_FOUND", "message": "방을 찾을 수 없습니다"}
+```
+
+### 🏗️ WebSocket 아키텍처 구조
+
+```
+Frontend WebSocket Client
+          ↕
+Spring WebSocket Handler (C2CWebSocketHandler)
+          ↕
+Business Service Layer (JoinRoomService, SendMessageService...)
+          ↕
+Redis Pub/Sub (RedisMessageBroker)
+          ↕
+Redis Server (chan:{roomId} channels)
+          ↕
+All Connected Clients in Room
+```
+
+---
+
+## 5. 오류 처리 & 복구 전략 ⚠️
+
+### 🚨 계층별 오류 처리
+
+**Frontend 오류 처리**
+```javascript
+// 네트워크 오류 (c2c-common.js 개선)
+class ConnectionManager {
+  async handleApiError(error) {
+    switch(error.type) {
+      case 'NETWORK_ERROR':
+        return this.retryWithBackoff(error.request);
+      case 'SERVER_ERROR':
+        return this.showUserFriendlyError(error.message);
+      case 'VALIDATION_ERROR':
+        return this.highlightInvalidFields(error.details);
+    }
+  }
+  
+  // 지수 백오프 재시도
+  async retryWithBackoff(request, attempt = 1) {
+    const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+    await this.sleep(delay);
+    return this.executeRequest(request);
+  }
+}
+```
+
+**Backend 오류 처리**
+```java
+// 전역 예외 처리기 개선
+@ControllerAdvice
+public class GlobalExceptionHandler {
+    
+    @ExceptionHandler(RoomNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRoomNotFound(RoomNotFoundException e) {
+        return ResponseEntity.status(404)
+            .body(ApiResponse.error("ROOM_NOT_FOUND", "방을 찾을 수 없습니다"));
+    }
+    
+    @ExceptionHandler(RedisConnectionFailureException.class) 
+    public ResponseEntity<ApiResponse<Void>> handleRedisFailure(RedisConnectionFailureException e) {
+        // 자동 복구 시도
+        redisHealthChecker.attemptReconnection();
+        return ResponseEntity.status(503)
+            .body(ApiResponse.error("SERVICE_UNAVAILABLE", "일시적인 서버 오류입니다"));
+    }
+}
+```
+
+### 🔄 복구 전략
+
+**WebSocket 자동 재연결**
+```javascript
+// 향상된 재연결 로직
+class WebSocketManager {
+  connect() {
+    this.socket = new WebSocket(this.url);
+    this.socket.onclose = (event) => {
+      if (!event.wasClean) {
+        this.scheduleReconnect();
+      }
+    };
+  }
+  
+  scheduleReconnect() {
+    const delay = Math.min(this.baseDelay * Math.pow(2, this.attempts), 30000);
+    setTimeout(() => this.connect(), delay);
+    this.attempts++;
+  }
+}
+```
+
+**Redis 회로 차단기**
+```java
+@Component
+public class RedisCircuitBreaker {
+    private boolean isOpen = false;
+    private int failureCount = 0;
+    private long lastFailureTime = 0;
+    
+    public <T> T execute(Supplier<T> operation) {
+        if (isOpen && !shouldAttemptReset()) {
+            throw new CircuitBreakerOpenException();
+        }
+        
+        try {
+            T result = operation.get();
+            onSuccess();
+            return result;
+        } catch (Exception e) {
+            onFailure();
+            throw e;
+        }
+    }
+}
+```
+
+---
+
+## 6. 테스팅 & 배포 전략 🧪
+
+### 🧪 테스트 전략
+
+**1. 단위 테스트 (JUnit + Testcontainers)**
+```java
+@SpringBootTest
+@Testcontainers
+class CreateRoomServiceTest {
+    
+    @Container
+    static RedisContainer redis = new RedisContainer("redis:7.2");
+    
+    @Test
+    void 방_생성_성공_테스트() {
+        // Given
+        String creatorName = "홍길동";
+        
+        // When
+        String roomId = createRoomService.createRoom(new CreateRoomCommand(creatorName));
+        
+        // Then
+        assertThat(roomRepository.exists(roomId)).isTrue();
+        assertThat(roomRepository.getMembers(roomId)).contains(creatorName);
+    }
+}
+```
+
+**2. 통합 테스트 (WebSocket + Redis)**
+```java
+@SpringBootTest(webEnvironment = RANDOM_PORT)
+class WebSocketIntegrationTest {
+    
+    @Test
+    void 방_참여_및_메시지_전송_테스트() {
+        // 방 생성 → WebSocket 연결 → 메시지 전송 → 수신 확인
+    }
+}
+```
+
+**3. E2E 테스트 (Playwright)**
+```javascript
+// tests/e2e/chat-flow.spec.js
+test('complete chat flow', async ({ page }) => {
+  // 방 생성 → 링크 복사 → 새 탭에서 참여 → 채팅 → 확인
+});
+```
+
+### 🐳 배포 전략
+
+**Docker Compose 구조**
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  app:
+    build: .
+    ports: ["8080:8080"]
+    depends_on: [redis, postgres]
+    
+  redis:
+    image: redis:7.2
+    ports: ["6379:6379"]
+    
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: c2c
+```
+
+---
+
+## 7. 단계별 실행 로드맵 🗺️
+
+### 🚀 Phase 1: 핵심 인프라 수정 (1-2일)
+
+**우선순위 1: Redis 연결 및 저장소 수정**
+```java
+// 1. CreateRoomService 수정 - 실제 Redis 저장
+@Override
+public String createRoom(CreateRoomCommand command) {
+    String roomId = generateRoomId();
+    
+    // 핵심 수정: 실제 Redis에 저장
+    roomRepository.addMember(roomId, command.creatorName());
+    userRepository.updatePresence(command.creatorName());
+    
+    log.info("방 생성 완료: roomId={}, creator={}", roomId, command.creatorName());
+    return roomId;
+}
+```
+
+**우선순위 2: 설정 파일 수정**
+```yaml
+# application.yml - Redis 호스트 수정
+spring:
+  data:
+    redis:
+      host: localhost  # redis → localhost 변경
+      port: 6379
+```
+
+**검증 방법**: Redis CLI로 키 생성 확인
+```bash
+redis-cli
+> SMEMBERS room:abc12345:members
+1) "홍길동"
+```
+
+### 🔧 Phase 2: WebSocket 연동 수정 (2-3일)
+
+**우선순위 3: WebSocket 핸들러 수정**
+```java
+// WebSocketSessionManager 구현 추가
+@Component
+public class WebSocketSessionManager {
+    private final ConcurrentMap<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, String> userSessions = new ConcurrentHashMap<>();
+    
+    public void registerSession(WebSocketSession session, String userId, String roomId) {
+        sessions.put(session.getId(), session);
+        userSessions.put(userId, session.getId());
+    }
+}
+```
+
+**우선순위 4: Redis Pub/Sub 연동 테스트**
+```bash
+# Redis에서 메시지 발행 테스트
+redis-cli
+> PUBLISH chan:abc12345 '{"type":"test","message":"hello"}'
+```
+
+### ⚡ Phase 3: 종단간 플로우 완성 (3-4일)
+
+**우선순위 5: 방 생성 → 참여 → 채팅 플로우**
+1. 방 생성 API 테스트: `POST /api/rooms`
+2. WebSocket 연결 테스트: `ws://localhost:8080/ws`
+3. 방 참여 테스트: `{"t":"join", "roomId":"...", "token":"..."}`
+4. 메시지 전송 테스트: `{"t":"msg", "text":"안녕하세요"}`
+
+**우선순위 6: 오류 처리 및 로깅 강화**
+```java
+@Slf4j
+@Service
+public class CreateRoomService {
+    @Override
+    public String createRoom(CreateRoomCommand command) {
+        log.info("🏗️ 방 생성 시작 - creatorName: {}", command.creatorName());
+        
+        try {
+            String roomId = generateRoomId();
+            log.info("📝 방 ID 생성: {}", roomId);
+            
+            roomRepository.addMember(roomId, command.creatorName());
+            log.info("✅ Redis 저장 완료: room:{}:members", roomId);
+            
+            return roomId;
+        } catch (Exception e) {
+            log.error("💥 방 생성 실패: {}", e.getMessage(), e);
+            throw new RoomCreationException("방 생성 중 오류가 발생했습니다", e);
+        }
+    }
+}
+```
+
+### 🧪 Phase 4: 테스트 및 최적화 (2-3일)
+
+**우선순위 7: 통합 테스트 작성**
+- Testcontainers로 Redis 통합 테스트
+- WebSocket 연결 테스트
+- E2E 플로우 테스트
+
+**우선순위 8: 성능 최적화**
+- Redis 연결 풀 최적화
+- WebSocket 메시지 배치 처리
+- 메모리 사용량 모니터링
+
+### 📦 Phase 5: 배포 준비 (1-2일)
+
+**우선순위 9: Docker 환경 구성**
+```dockerfile
+# Dockerfile
+FROM openjdk:21-jdk-slim
+COPY target/c2c-*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app.jar"]
+```
+
+**우선순위 10: 운영 모니터링**
+- Health check 엔드포인트
+- 메트릭 수집 (Micrometer)
+- 로그 집중화
+
+---
+
+## 🎯 성공 기준 & 검증 방법
+
+### 각 Phase별 완료 조건
+
+**Phase 1 완료 조건**:
+- ✅ REST API로 방 생성 시 Redis에 실제 저장됨
+- ✅ `redis-cli SMEMBERS room:{id}:members` 결과 확인
+- ✅ 로그에 저장 과정이 상세히 기록됨
+
+**Phase 2 완료 조건**:
+- ✅ WebSocket 연결 성공
+- ✅ 방 참여 메시지 처리 성공
+- ✅ Redis Pub/Sub로 메시지 브로드캐스트
+
+**Phase 3 완료 조건**:
+- ✅ 브라우저에서 방 생성 → 참여 → 채팅 가능
+- ✅ 멀티 브라우저에서 실시간 채팅 확인
+- ✅ 모든 오류 상황에서 의미있는 메시지 표시
+
+### 최종 검수 체크리스트
+
+```bash
+# 1. 방 생성 테스트
+curl -X POST http://localhost:8080/api/rooms \
+  -H "Content-Type: application/json" \
+  -d '{"creatorName": "테스터"}'
+
+# 2. Redis 데이터 확인
+redis-cli SMEMBERS room:{roomId}:members
+
+# 3. WebSocket 연결 테스트
+# 브라우저 개발자 도구에서 WebSocket 연결 확인
+
+# 4. 실시간 채팅 테스트
+# 두 개 브라우저 탭에서 동시 채팅 확인
+```
+
+---
+
+## 💡 핵심 개선 포인트 요약
+
+1. **Room 도메인 객체 역할 재정의**: 검증용 DTO로만 사용
+2. **Repository save() 메소드 실제 구현**: Redis 저장 로직 추가  
+3. **WebSocket-Redis 완전 연동**: Pub/Sub 실시간 동기화
+4. **포괄적인 오류 처리**: 사용자 친화적 + 개발자 디버깅 지원
+5. **단계적 검증 프로세스**: 각 Phase별 명확한 완료 기준
+
+이 계획대로 진행하면 **실제 작동하는 완전한 실시간 채팅 시스템**을 구축할 수 있습니다!
+
+---
+
+## 📝 참고 문서
+
+- 원본 명세서: C2C_project_mvp.txt
+- 현재 프로젝트 구조: PROJECT_STRUCTURE.md
+- 현재 진행 상황: PROGRESS.md
+- 추가 계획: additionalPlan.txt
+
+---
+
+**문서 버전**: v1.0
+**최종 수정**: 2025-08-28
+**다음 리뷰 예정**: Phase 1 완료 후

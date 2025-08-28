@@ -1,0 +1,938 @@
+
+✻ Thinking…
+
+  사용자가 풀스택 개발자 관점에서 전방위적으로 꼼꼼한 
+  계획을 요청했습니다. 지금까지 분석한 내용을 바탕으로, 
+  실제로 작동하는 시스템을 구축하기 위한 종합적인 설계와 
+  계획을 세워야 합니다.
+
+  현재 문제점들:
+  1. Room 도메인 객체와 Redis 저장 로직의 분리가 잘못됨
+  2. 방 생성이 실제로 Redis에 저장되지 않음
+  3. Redis 연결 설정 문제
+  4. WebSocket과 Redis Pub/Sub 연동 문제
+  5. 전체적인 데이터 플로우 문제
+
+  풀스택 개발자 관점에서 고려해야 할 사항들:
+  1. 프론트엔드 - 백엔드 API 연동
+  2. 백엔드 아키텍처 수정
+  3. 데이터베이스/캐시 설계
+  4. 실시간 통신 구조
+  5. 배포 및 운영 고려사항
+  6. 테스팅 전략
+  7. 오류 처리 및 복구
+  8. 성능 최적화
+
+  계획을 단계별로 구체적으로 세워보겠습니다.
+
+● 🏗️ C2C 프로젝트 전방위 재설계 계획
+
+  풀스택 개발자 관점에서 현재 문제들을 근본적으로 해결하고
+  실제 작동하는 시스템을 구축하기 위한 종합 계획입니다.
+
+● Update Todos
+  ⎿  ☐ Analyze current architecture issues and design      
+       better approach
+     ☐ Design proper data flow and Redis integration
+       strategy
+     ☐ Plan frontend-backend API contract
+     ☐ Design WebSocket real-time communication
+       architecture
+     ☐ Plan error handling and resilience strategy
+     ☐ Design testing and deployment strategy
+     ☐ Create step-by-step implementation roadmap
+
+✻ Thinking…
+
+  전방위적으로 꼼꼼하게 계획을 세우기 위해 다음 관점들을 
+  포함해야 합니다:
+
+  1. 아키텍처 설계 개선
+    - 현재 헥사고날 아키텍처의 문제점 분석
+    - Room 도메인 객체와 Redis 저장소의 올바른 관계 설정
+    - 데이터 플로우 설계
+  2. 기술 스택 및 데이터 저장소 전략
+    - Redis를 소스 오브 트루스로 사용하는 올바른 방법
+    - PostgreSQL과 Redis의 역할 분담
+    - 실시간 메시징 아키텍처
+  3. 프론트엔드-백엔드 통합
+    - API 설계 및 계약
+    - WebSocket 통신 프로토콜
+    - 상태 관리 전략
+  4. 운영 및 배포
+    - Docker 환경 구성
+    - 설정 관리
+    - 모니터링 및 로깅
+  5. 테스팅 전략
+    - 단위 테스트
+    - 통합 테스트
+    - E2E 테스트
+  6. 오류 처리 및 복구
+    - 네트워크 오류 처리
+    - Redis 장애 대응
+    - WebSocket 재연결
+
+  구체적이고 실행 가능한 계획을 만들어보겠습니다.
+
+● Update Todos
+  ⎿  ☐ Analyze current architecture issues and design      
+       better approach
+     ☐ Design proper data flow and Redis integration
+       strategy
+     ☐ Plan frontend-backend API contract
+     ☐ Design WebSocket real-time communication
+       architecture
+     ☐ Plan error handling and resilience strategy
+     ☐ Design testing and deployment strategy
+     ☐ Create step-by-step implementation roadmap
+
+✻ Thinking…
+
+  먼저 현재 아키텍처의 근본적 문제점들을 분석하고, 풀스택 
+  개발자로서 전체 시스템의 올바른 설계 방향을 제시해야 
+  합니다.
+
+  현재 아키텍처의 문제점 분석
+
+  1. 도메인 객체와 저장소의 역할 혼재
+    - Room 도메인 객체가 실제 저장소 역할과 비즈니스 로직 
+  검증 역할을 동시에 하려고 함
+    - Redis가 소스 오브 트루스인데 Java 객체가 또 다른 
+  상태를 가지려고 함
+    - 이중 상태 관리로 인한 일관성 문제
+  2. 잘못된 추상화
+    - Repository의 save() 메소드가 실제로 저장하지 않음
+    - Domain 객체가 Infrastructure의 Redis 키 구조를 알고 
+  있음
+    - Use Case가 실제 저장 로직을 모름
+  3. 데이터 플로우 설계 문제
+    - 방 생성 시 실제 Redis 저장이 누락됨
+    - WebSocket 연결과 방 참여 로직이 분리되어 있어 상태 
+  불일치 가능
+
+  올바른 설계 방향
+
+  1. Redis-First Architecture
+    - Redis를 Single Source of Truth로 완전 활용
+    - Domain 객체는 순수한 DTO/VO 역할만
+    - Repository는 Redis 연산을 직접적으로 수행
+
+  각 컴포넌트의 명확한 책임을 정의하고 데이터 일관성을 
+  보장하는 아키텍처가 필요합니다. 프로토콜 처리와 비즈니스 
+  로직을 엄격하게 분리하여 시스템의 유연성과 확장성을 높일 
+  수 있습니다. 실시간 상태 동기화를 위해 WebSocket과 
+  Redis를 긴밀하게 연동하는 접근이 중요합니다.
+
+● 1. 현재 아키텍처 문제점 분석 & 개선 방향 🔍
+
+● Update Todos
+  ⎿  ☒ Analyze current architecture issues and design      
+       better approach
+     ☐ Design proper data flow and Redis integration 
+       strategy
+     ☐ Plan frontend-backend API contract
+     ☐ Design WebSocket real-time communication
+       architecture
+     ☐ Plan error handling and resilience strategy
+     ☐ Design testing and deployment strategy
+     ☐ Create step-by-step implementation roadmap
+
+✻ Thinking…
+
+  현재 아키텍처 문제점들을 분석했으니, 이제 올바른 데이터 
+  플로우와 Redis 통합 전략을 설계해야 합니다.
+
+  2. 올바른 데이터 플로우 및 Redis 통합 전략
+
+  핵심 원칙:
+  1. Redis-First Architecture: Redis를 Single Source of 
+  Truth로
+  2. Event-Driven Architecture: 상태 변경을 이벤트로 전파
+  3. Stateless Application Layer: 모든 상태는 Redis에만 
+  저장
+  4. Atomic Operations: Lua 스크립트로 원자성 보장
+
+  데이터 구조 설계
+
+  Redis 키 구조 (명세서 기준):
+  - room:{roomId}:members (SET) - 방 멤버 목록  
+  - user:{userId}:presence (STRING, TTL=30s) - 온라인 상태
+  - user:{userId}:session (HASH, TTL=10m) - 세션 정보
+  - chan:{roomId} (PUB/SUB) - 실시간 메시지
+
+  PostgreSQL 구조:
+  - error_info 테이블만 사용 (에러 메시지 관리)
+  - 실제 비즈니스 데이터는 모두 Redis에 저장
+
+  올바른 데이터 플로우
+
+  방 생성 플로우:
+  Frontend → POST /api/rooms → CreateRoomService 
+  → Redis: SADD room:{id}:members {creatorId}
+  → Redis: SETEX user:{creatorId}:presence 30 online
+
+
+  → Redis: HMSET user:{creatorId}:session roomId {id} 
+  joinedAt {timestamp}
+  → Response: {roomId}
+
+  방 참여 플로우:
+  사용자 인증 및 방 존재 검증 후, 멤버십과 세션 상태를 
+  Redis에 즉시 반영합니다. 실시간 이벤트 채널을 통해 다른 
+  참여자들에게 알림을 전송하고, 온라인 상태를 
+  업데이트합니다. 이 접근은 분산 환경에서 빠르고 일관된 
+  상태 관리를 보장합니다.
+
+  → WebSocket 채널로 사용자 참여 이벤트를 브로드캐스트하고,
+   현재 방 멤버 목록을 클라이언트에 응답합니다.
+
+● 🚨 근본 문제들
+
+  1. 이중 상태 관리 문제
+  // 현재 잘못된 구조
+  Room room = new Room(roomId, creatorName);  // ← Java 
+  메모리에 상태
+  roomRepository.save(room);                  // ←
+  Redis에는 저장 안함
+  // 결과: Java 객체와 Redis 상태가 다름!
+
+  2. 추상화 레벨 혼재
+  // Repository가 실제로 저장하지 않음
+  public Room save(Room room) {
+      return room; // ← 이게 무슨 의미인가?
+  }
+
+  3. 비즈니스 플로우와 데이터 저장의 분리 부족
+
+  ✅ 올바른 아키텍처 설계
+
+  Redis-First Architecture 채택
+  - Redis = Single Source of Truth
+  - Domain 객체 = 순수 DTO/Validation 역할만
+  - Repository = Redis 직접 조작
+  - Use Case = 비즈니스 플로우 + Redis 상태 관리
+
+  2. 데이터 플로우 & Redis 통합 전략 📊
+
+● Update Todos
+  ⎿  ☒ Analyze current architecture issues and design 
+       better approach
+     ☒ Design proper data flow and Redis integration 
+       strategy
+     ☐ Plan frontend-backend API contract
+     ☐ Design WebSocket real-time communication
+       architecture
+     ☐ Plan error handling and resilience strategy
+     ☐ Design testing and deployment strategy
+     ☐ Create step-by-step implementation roadmap
+
+✻ Thinking…
+
+  이제 올바른 데이터 플로우와 Redis 통합 전략을 설계했으니,
+   프론트엔드-백엔드 API 계약을 계획해야 합니다.
+
+  3. Frontend-Backend API Contract 설계
+
+  풀스택 개발자 관점에서 API 설계 시 고려사항:
+
+  1. RESTful API 원칙
+    - 명확한 리소스 기반 URL 구조
+    - 적절한 HTTP 메소드 사용
+    - 일관된 응답 포맷
+  2. WebSocket 프로토콜
+    - 클라이언트-서버 간 실시간 메시지 규격
+    - 오류 처리 및 재연결 로직
+    - 상태 동기화 메커니즘
+  3. 데이터 전송 최적화
+    - 필요한 최소 데이터만 전송
+    - JSON 구조 일관성
+    - 타입 안전성
+  4. 오류 처리
+    - 표준화된 오류 응답
+    - 클라이언트 친화적 오류 메시지
+    - 복구 가능한 오류와 치명적 오류 구분
+
+  구체적인 API 명세를 작성해보겠습니다.
+
+● 🎯 올바른 Redis 키 구조 (명세서 준수)
+
+  # 방 멤버 관리
+  room:{roomId}:members          # SET - 방 멤버 목록
+
+  # 사용자 프레즌스 (하트비트 기반)
+  user:{userId}:presence         # STRING, TTL=30s - 온라인
+   상태
+  user:{userId}:session          # HASH, TTL=10m - 세션
+  정보
+
+  # 실시간 메시징
+  chan:{roomId}                  # PUB/SUB - 메시지
+  브로드캐스트
+
+  # PostgreSQL은 에러 정보만
+  error_info                     # TABLE - 다국어 오류 
+  메시지
+
+  ⚡ 핵심 데이터 플로우
+
+  방 생성 (수정된 올바른 플로우)
+  Frontend → POST /api/rooms {"creatorName": "user1"}
+  ↓
+  CreateRoomService.createRoom()
+  ├─ roomId = generateRoomId()
+  ├─ Redis: SADD room:{roomId}:members user1
+  ├─ Redis: SETEX user:user1:presence 30 "online"
+  └─ Redis: HMSET user:user1:session roomId {roomId}
+  joinedAt {now}
+  ↓
+  Response: {"success": true, "data": {"roomId":
+  "abc12345"}}
+
+  방 참여 (WebSocket 기반)
+  WebSocket: {"t":"join", "roomId":"abc12345",
+  "token":"user2"}
+  ↓
+  JoinRoomService.joinRoom()
+  ├─ Redis: EXISTS room:{roomId}:members (방 존재 확인)
+  ├─ Redis: SADD room:{roomId}:members user2
+  ├─ Redis: PERSIST room:{roomId}:members (TTL 해제)
+  ├─ Redis: SETEX user:user2:presence 30 "online"
+  └─ Redis: PUBLISH chan:{roomId} {"type":"joined",
+  "userId":"user2"}
+  ↓
+  WebSocket Response: {"t":"joined", "roomId":"abc12345",
+  "me":"user2", "members":["user1","user2"]}
+
+  3. Frontend-Backend API 계약 📡
+
+● Update Todos
+  ⎿  ☒ Analyze current architecture issues and design      
+       better approach
+     ☒ Design proper data flow and Redis integration 
+       strategy
+     ☒ Plan frontend-backend API contract
+     ☐ Design WebSocket real-time communication 
+       architecture
+     ☐ Plan error handling and resilience strategy
+     ☐ Design testing and deployment strategy
+     ☐ Create step-by-step implementation roadmap
+
+✻ Thinking…
+
+  API 계약을 완료했으니 이제 WebSocket 실시간 통신 
+  아키텍처를 설계해야 합니다.
+
+  4. WebSocket 실시간 통신 아키텍처
+
+  풀스택 개발자 관점에서 WebSocket 설계 시 고려사항:
+
+  1. 연결 관리
+    - 연결 수립, 유지, 종료 로직
+    - 재연결 및 복구 메커니즘
+    - 세션 관리 및 인증
+  2. 메시지 라우팅
+    - 클라이언트 → 서버 메시지 처리
+    - 서버 → 클라이언트 메시지 전송
+    - 브로드캐스트 메커니즘
+  3. 상태 동기화
+    - 클라이언트 상태와 서버 상태 일치
+    - 멀티탭/멀티디바이스 지원
+    - 네트워크 단절 시 상태 복구
+  4. 성능 최적화
+    - 메시지 큐잉 및 배치 처리
+    - 백프레셔 제어
+    - 메모리 관리
+  5. 확장성 고려
+    - 수평 확장 지원 (Redis Pub/Sub)
+    - 로드 밸런싱
+    - 세션 스티키니스
+
+  구체적인 WebSocket 아키텍처를 설계해보겠습니다.
+
+● 🔌 REST API 명세
+
+  방 생성 API
+  POST /api/rooms
+  Content-Type: application/json
+
+  Request:
+  {
+    "creatorName": "홍길동"
+  }
+
+  Response (201 Created):
+  {
+    "success": true,
+    "data": {
+      "roomId": "abc12345"
+    },
+    "message": "채팅방이 생성되었습니다"
+  }
+
+  방 정보 조회 API
+  GET /api/rooms/{roomId}
+
+  Response (200 OK):
+  {
+    "success": true,
+    "data": {
+      "roomId": "abc12345",
+      "status": "active",
+      "memberCount": 2,
+      "members": ["user1", "user2"]
+    }
+  }
+
+  📱 표준화된 응답 포맷
+
+  {
+    "success": boolean,
+    "data": any | null,
+    "message": string | null,
+    "error": {
+      "code": "ERROR_CODE",
+      "message": "사용자 친화적 메시지",
+      "details": {} // 개발용 상세 정보
+    } | null,
+    "timestamp": "2025-01-XX 00:00:00Z"
+  }
+
+  4. WebSocket 실시간 통신 아키텍처 🔄
+
+● Update Todos
+  ⎿  ☒ Analyze current architecture issues and design 
+       better approach
+     ☒ Design proper data flow and Redis integration 
+       strategy
+     ☒ Plan frontend-backend API contract
+     ☒ Design WebSocket real-time communication 
+       architecture
+     ☐ Plan error handling and resilience strategy
+     ☐ Design testing and deployment strategy
+     ☐ Create step-by-step implementation roadmap
+
+✻ Thinking…
+
+  WebSocket 실시간 통신 아키텍처를 설계했으니, 이제 오류 
+  처리 및 복구 전략을 계획해야 합니다.
+
+  5. 오류 처리 및 복구 전략
+
+  풀스택 개발자 관점에서 오류 처리 시 고려사항:
+
+  1. 계층별 오류 처리
+    - Frontend: 사용자 경험 중심의 오류 처리
+    - API Layer: HTTP 상태 코드 및 표준 오류 응답
+    - WebSocket Layer: 연결 오류 및 메시지 오류
+    - Service Layer: 비즈니스 로직 오류
+    - Infrastructure Layer: Redis, Database 연결 오류
+  2. 복구 전략
+    - 자동 복구 vs 수동 복구
+    - 재시도 로직 (Exponential Backoff)
+    - 우아한 성능 저하 (Graceful Degradation)
+    - 회로 차단기 패턴 (Circuit Breaker)
+  3. 사용자 경험
+    - 의미있는 오류 메시지
+    - 복구 가이드 제공
+    - 로딩 상태 및 진행 상황 표시
+    - 오프라인 모드 지원
+  4. 모니터링 및 알림
+    - 실시간 오류 모니터링
+    - 임계치 기반 알림
+    - 오류 패턴 분석
+    - 성능 지표 추적
+
+  각 시스템 계층에서 발생할 수 있는 잠재적 오류 시나리오를 
+  세부적으로 분석하고, 체계적인 대응 방안을 수립해야 
+  합니다. 시스템의 안정성과 신뢰성을 높이기 위해 다각도로 
+  접근할 필요가 있습니다.
+
+● 💬 WebSocket 프로토콜 (명세서 기준)
+
+  클라이언트 → 서버 메시지
+  // 방 입장
+  {"t": "join", "roomId": "abc12345", "token":
+  "user_token"}
+
+  // 채팅 메시지
+  {"t": "msg", "roomId": "abc12345", "text": "안녕하세요"}
+
+  // 하트비트 (10초 간격)
+  {"t": "ping"}
+
+  // 방 퇴장
+  {"t": "leave", "roomId": "abc12345"}
+
+  서버 → 클라이언트 메시지
+  // 입장 성공
+  {"t": "joined", "roomId": "abc12345", "me": "user1",
+  "members": ["user1", "user2"]}
+
+  // 채팅 메시지 수신
+  {"t": "msg", "roomId": "abc12345", "from": "user2",
+  "text": "안녕하세요", "timestamp": "2025-01-XX"}
+
+  // 하트비트 응답
+  {"t": "pong"}
+
+  // 사용자 입장 알림
+  {"t": "user_joined", "roomId": "abc12345", "userId":
+  "user3"}
+
+  // 오류 응답
+  {"t": "error", "code": "ROOM_NOT_FOUND", "message": "방을
+   찾을 수 없습니다"}
+
+  🏗️ WebSocket 아키텍처 구조
+
+  Frontend WebSocket Client
+            ↕
+  Spring WebSocket Handler (C2CWebSocketHandler)
+            ↕
+  Business Service Layer (JoinRoomService,
+  SendMessageService...)
+            ↕
+  Redis Pub/Sub (RedisMessageBroker)
+            ↕
+  Redis Server (chan:{roomId} channels)
+            ↕
+  All Connected Clients in Room
+
+  5. 오류 처리 & 복구 전략 ⚠️
+
+● Update Todos
+  ⎿  ☒ Analyze current architecture issues and design      
+       better approach
+     ☒ Design proper data flow and Redis integration 
+       strategy
+     ☒ Plan frontend-backend API contract
+     ☒ Design WebSocket real-time communication 
+       architecture
+     ☒ Plan error handling and resilience strategy
+     ☐ Design testing and deployment strategy
+     ☐ Create step-by-step implementation roadmap
+
+✻ Thinking…
+
+  오류 처리 전략을 완료했으니, 이제 테스팅 및 배포 전략을 
+  계획해야 합니다.
+
+  6. 테스팅 및 배포 전략
+
+  풀스택 개발자 관점에서 테스팅 전략:
+
+  1. 테스트 피라미드
+    - Unit Tests (60%): 개별 컴포넌트/서비스 테스트
+    - Integration Tests (30%): 컴포넌트 간 연동 테스트
+    - E2E Tests (10%): 전체 사용자 플로우 테스트
+  2. 계층별 테스트
+    - Frontend: Jest, React Testing Library, Cypress
+    - Backend: JUnit, Spring Boot Test, Testcontainers
+    - Database: Redis/PostgreSQL 통합 테스트
+    - API: RestAssured, WebSocket 테스트
+  3. 배포 전략
+    - Docker 컨테이너화
+    - Multi-stage Docker builds
+    - Docker Compose for local development
+    - CI/CD 파이프라인
+    - Blue-Green 또는 Rolling Deployment
+  4. 환경 관리
+    - Development (개발)
+    - Testing (테스트)
+    - Staging (스테이징) 
+    - Production (운영)
+
+  구체적인 테스팅 및 배포 전략을 계획해보겠습니다.
+
+● 🚨 계층별 오류 처리
+
+  Frontend 오류 처리
+  // 네트워크 오류 (c2c-common.js 개선)
+  class ConnectionManager {
+    async handleApiError(error) {
+      switch(error.type) {
+        case 'NETWORK_ERROR':
+          return this.retryWithBackoff(error.request);
+        case 'SERVER_ERROR':
+          return this.showUserFriendlyError(error.message);
+        case 'VALIDATION_ERROR':
+          return
+  this.highlightInvalidFields(error.details);
+      }
+    }
+
+    // 지수 백오프 재시도
+    async retryWithBackoff(request, attempt = 1) {
+      const delay = Math.min(1000 * Math.pow(2, attempt),
+  30000);
+      await this.sleep(delay);
+      return this.executeRequest(request);
+    }
+  }
+
+  Backend 오류 처리
+  // 전역 예외 처리기 개선
+  @ControllerAdvice
+  public class GlobalExceptionHandler {
+
+      @ExceptionHandler(RoomNotFoundException.class)
+      public ResponseEntity<ApiResponse<Void>>
+  handleRoomNotFound(RoomNotFoundException e) {
+          return ResponseEntity.status(404)
+              .body(ApiResponse.error("ROOM_NOT_FOUND",
+  "방을 찾을 수 없습니다"));
+      }
+
+
+  @ExceptionHandler(RedisConnectionFailureException.class)
+      public ResponseEntity<ApiResponse<Void>>
+  handleRedisFailure(RedisConnectionFailureException e) {
+          // 자동 복구 시도
+          redisHealthChecker.attemptReconnection();
+          return ResponseEntity.status(503)
+
+  .body(ApiResponse.error("SERVICE_UNAVAILABLE", "일시적인
+  서버 오류입니다"));
+      }
+  }
+
+  🔄 복구 전략
+
+  WebSocket 자동 재연결
+  // 향상된 재연결 로직
+  class WebSocketManager {
+    connect() {
+      this.socket = new WebSocket(this.url);
+      this.socket.onclose = (event) => {
+        if (!event.wasClean) {
+          this.scheduleReconnect();
+        }
+      };
+    }
+
+    scheduleReconnect() {
+      const delay = Math.min(this.baseDelay * Math.pow(2,
+  this.attempts), 30000);
+      setTimeout(() => this.connect(), delay);
+      this.attempts++;
+    }
+  }
+
+  Redis 회로 차단기
+  @Component
+  public class RedisCircuitBreaker {
+      private boolean isOpen = false;
+      private int failureCount = 0;
+      private long lastFailureTime = 0;
+
+      public <T> T execute(Supplier<T> operation) {
+          if (isOpen && !shouldAttemptReset()) {
+              throw new CircuitBreakerOpenException();
+          }
+
+          try {
+              T result = operation.get();
+              onSuccess();
+              return result;
+          } catch (Exception e) {
+              onFailure();
+              throw e;
+          }
+      }
+  }
+
+  6. 테스팅 & 배포 전략 🧪
+
+● Update Todos
+  ⎿  ☒ Analyze current architecture issues and design      
+       better approach
+     ☒ Design proper data flow and Redis integration 
+       strategy
+     ☒ Plan frontend-backend API contract
+     ☒ Design WebSocket real-time communication 
+       architecture
+     ☒ Plan error handling and resilience strategy
+     ☒ Design testing and deployment strategy
+     ☐ Create step-by-step implementation roadmap
+
+✻ Thinking…
+
+  테스팅 및 배포 전략을 완료했으니, 이제 마지막으로 단계별 
+  실행 로드맵을 만들어야 합니다.
+
+  7. 단계별 실행 로드맵
+
+  풀스택 개발자 관점에서 실행 로드맵을 만들 때 고려사항:
+
+  1. 의존성 기반 우선순위
+    - 핵심 인프라부터 구축 (Redis, Database)
+    - 기반 서비스 다음 (Repository, Configuration)
+    - 비즈니스 로직 구현 (Use Cases, Controllers)
+    - 통합 및 테스트
+  2. 위험도 관리
+    - 고위험/고영향 작업 우선 처리
+    - 기술적 부채 해결
+    - 성능 병목 지점 개선
+  3. 빠른 피드백 루프
+    - MVP 기능부터 구현
+    - 조기 통합 테스트
+    - 지속적인 배포 및 검증
+  4. 단계별 검증
+    - 각 단계별 성공 기준 정의
+    - 자동화된 테스트로 검증
+    - 수동 테스트 체크리스트
+
+  구체적이고 실행 가능한 로드맵을 만들어보겠습니다.
+
+● 🧪 테스트 전략
+
+  1. 단위 테스트 (JUnit + Testcontainers)
+  @SpringBootTest
+  @Testcontainers
+  class CreateRoomServiceTest {
+
+      @Container
+      static RedisContainer redis = new
+  RedisContainer("redis:7.2");
+
+      @Test
+      void 방_생성_성공_테스트() {
+          // Given
+          String creatorName = "홍길동";
+
+          // When
+          String roomId = createRoomService.createRoom(new
+  CreateRoomCommand(creatorName));
+
+          // Then
+
+  assertThat(roomRepository.exists(roomId)).isTrue();
+          assertThat(roomRepository.getMembers(roomId)).con
+  tains(creatorName);
+      }
+  }
+
+  2. 통합 테스트 (WebSocket + Redis)
+  @SpringBootTest(webEnvironment = RANDOM_PORT)
+  class WebSocketIntegrationTest {
+
+      @Test
+      void 방_참여_및_메시지_전송_테스트() {
+          // 방 생성 → WebSocket 연결 → 메시지 전송 → 수신
+  확인
+      }
+  }
+
+  3. E2E 테스트 (Playwright)
+  // tests/e2e/chat-flow.spec.js
+  test('complete chat flow', async ({ page }) => {
+    // 방 생성 → 링크 복사 → 새 탭에서 참여 → 채팅 → 확인
+  });
+
+  🐳 배포 전략
+
+  Docker Compose 구조
+  # docker-compose.yml
+  version: '3.8'
+  services:
+    app:
+      build: .
+      ports: ["8080:8080"]
+      depends_on: [redis, postgres]
+
+    redis:
+      image: redis:7.2
+      ports: ["6379:6379"]
+
+    postgres:
+      image: postgres:15
+      environment:
+        POSTGRES_DB: c2c
+
+  7. 단계별 실행 로드맵 🗺️
+
+● Update Todos
+  ⎿  ☒ Analyze current architecture issues and design      
+       better approach
+     ☒ Design proper data flow and Redis integration 
+       strategy
+     ☒ Plan frontend-backend API contract
+     ☒ Design WebSocket real-time communication 
+       architecture
+     ☒ Plan error handling and resilience strategy
+     ☒ Design testing and deployment strategy
+     ☒ Create step-by-step implementation roadmap
+
+✻ Thinking…
+
+  모든 설계를 완료했으니 이제 종합적인 실행 로드맵을 
+  작성하겠습니다. 
+
+  풀스택 개발자로서 실제 구현 가능한 단계별 계획을 
+  제시하겠습니다. 각 단계는 다음 단계의 기반이 되며, 빠른 
+  피드백을 위해 MVP부터 시작하는 방식으로 구성하겠습니다.
+
+● 🚀 Phase 1: 핵심 인프라 수정 (1-2일)
+
+  우선순위 1: Redis 연결 및 저장소 수정
+  // 1. CreateRoomService 수정 - 실제 Redis 저장
+  @Override
+  public String createRoom(CreateRoomCommand command) {
+      String roomId = generateRoomId();
+
+      // 핵심 수정: 실제 Redis에 저장
+      roomRepository.addMember(roomId,
+  command.creatorName());
+      userRepository.updatePresence(command.creatorName());
+
+      log.info("방 생성 완료: roomId={}, creator={}",
+  roomId, command.creatorName());
+      return roomId;
+  }
+
+  우선순위 2: 설정 파일 수정
+  # application.yml - Redis 호스트 수정
+  spring:
+    data:
+      redis:
+        host: localhost  # redis → localhost 변경
+        port: 6379
+
+  검증 방법: Redis CLI로 키 생성 확인
+  redis-cli
+  > SMEMBERS room:abc12345:members
+  1) "홍길동"
+
+  🔧 Phase 2: WebSocket 연동 수정 (2-3일)
+
+  우선순위 3: WebSocket 핸들러 수정
+  // WebSocketSessionManager 구현 추가
+  @Component
+  public class WebSocketSessionManager {
+      private final ConcurrentMap<String, WebSocketSession>
+   sessions = new ConcurrentHashMap<>();
+      private final ConcurrentMap<String, String>
+  userSessions = new ConcurrentHashMap<>();
+
+      public void registerSession(WebSocketSession session,
+   String userId, String roomId) {
+          sessions.put(session.getId(), session);
+          userSessions.put(userId, session.getId());
+      }
+  }
+
+  우선순위 4: Redis Pub/Sub 연동 테스트
+  # Redis에서 메시지 발행 테스트
+  redis-cli
+  > PUBLISH chan:abc12345
+  '{"type":"test","message":"hello"}'
+
+  ⚡ Phase 3: 종단간 플로우 완성 (3-4일)
+
+  우선순위 5: 방 생성 → 참여 → 채팅 플로우
+  1. 방 생성 API 테스트: POST /api/rooms
+  2. WebSocket 연결 테스트: ws://localhost:8080/ws
+  3. 방 참여 테스트: {"t":"join", "roomId":"...",
+  "token":"..."}
+  4. 메시지 전송 테스트: {"t":"msg", "text":"안녕하세요"}
+
+  우선순위 6: 오류 처리 및 로깅 강화
+  @Slf4j
+  @Service
+  public class CreateRoomService {
+      @Override
+      public String createRoom(CreateRoomCommand command) {
+          log.info("🏗️ 방 생성 시작 - creatorName: {}",
+  command.creatorName());
+
+          try {
+              String roomId = generateRoomId();
+              log.info("📝 방 ID 생성: {}", roomId);
+
+              roomRepository.addMember(roomId,
+  command.creatorName());
+              log.info("✅ Redis 저장 완료:
+  room:{}:members", roomId);
+
+              return roomId;
+          } catch (Exception e) {
+              log.error("💥 방 생성 실패: {}",
+  e.getMessage(), e);
+              throw new RoomCreationException("방 생성 중
+  오류가 발생했습니다", e);
+          }
+      }
+  }
+
+  🧪 Phase 4: 테스트 및 최적화 (2-3일)
+
+  우선순위 7: 통합 테스트 작성
+  - Testcontainers로 Redis 통합 테스트
+  - WebSocket 연결 테스트
+  - E2E 플로우 테스트
+
+  우선순위 8: 성능 최적화
+  - Redis 연결 풀 최적화
+  - WebSocket 메시지 배치 처리
+  - 메모리 사용량 모니터링
+
+  📦 Phase 5: 배포 준비 (1-2일)
+
+  우선순위 9: Docker 환경 구성
+  # Dockerfile
+  FROM openjdk:21-jdk-slim
+  COPY target/c2c-*.jar app.jar
+  EXPOSE 8080
+  ENTRYPOINT ["java", "-jar", "/app.jar"]
+
+  우선순위 10: 운영 모니터링
+  - Health check 엔드포인트
+  - 메트릭 수집 (Micrometer)
+  - 로그 집중화
+
+  🎯 성공 기준 & 검증 방법
+
+  각 Phase별 완료 조건
+
+  Phase 1 완료 조건:
+  - ✅ REST API로 방 생성 시 Redis에 실제 저장됨
+  - ✅ redis-cli SMEMBERS room:{id}:members 결과 확인
+  - ✅ 로그에 저장 과정이 상세히 기록됨
+
+  Phase 2 완료 조건:
+  - ✅ WebSocket 연결 성공
+  - ✅ 방 참여 메시지 처리 성공
+  - ✅ Redis Pub/Sub로 메시지 브로드캐스트
+
+  Phase 3 완료 조건:
+  - ✅ 브라우저에서 방 생성 → 참여 → 채팅 가능
+  - ✅ 멀티 브라우저에서 실시간 채팅 확인
+  - ✅ 모든 오류 상황에서 의미있는 메시지 표시
+
+  최종 검수 체크리스트
+
+  # 1. 방 생성 테스트
+  curl -X POST http://localhost:8080/api/rooms \
+    -H "Content-Type: application/json" \
+    -d '{"creatorName": "테스터"}'
+
+  # 2. Redis 데이터 확인
+  redis-cli SMEMBERS room:{roomId}:members
+
+  # 3. WebSocket 연결 테스트
+  # 브라우저 개발자 도구에서 WebSocket 연결 확인
+
+  # 4. 실시간 채팅 테스트
+  # 두 개 브라우저 탭에서 동시 채팅 확인
+
+  💡 핵심 개선 포인트 요약
+
+  1. Room 도메인 객체 역할 재정의: 검증용 DTO로만 사용
+  2. Repository save() 메소드 실제 구현: Redis 저장 로직
+  추가
+  3. WebSocket-Redis 완전 연동: Pub/Sub 실시간 동기화
+  4. 포괄적인 오류 처리: 사용자 친화적 + 개발자 디버깅 지원
+  5. 단계적 검증 프로세스: 각 Phase별 명확한 완료 기준
+
+  이 계획대로 진행하면 실제 작동하는 완전한 실시간 채팅 
+  시스템을 구축할 수 있습니다!

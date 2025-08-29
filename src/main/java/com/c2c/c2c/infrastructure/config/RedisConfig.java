@@ -82,11 +82,32 @@ public class RedisConfig {
     }
     
     /**
-     * RedisTemplate 설정
-     * 문자열 키, JSON 값 직렬화
+     * RedisTemplate 설정 - 문자열 키-값 (Repository용)
      */
     @Bean
-    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
+    public RedisTemplate<String, String> redisTemplate(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, String> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+        
+        // 키와 값 모두 문자열 직렬화 (Repository에서 SET, Hash 연산용)
+        StringRedisSerializer stringSerializer = new StringRedisSerializer();
+        template.setKeySerializer(stringSerializer);
+        template.setValueSerializer(stringSerializer);
+        template.setHashKeySerializer(stringSerializer);
+        template.setHashValueSerializer(stringSerializer);
+        
+        // 기본 직렬화 설정
+        template.setDefaultSerializer(stringSerializer);
+        
+        template.afterPropertiesSet();
+        return template;
+    }
+    
+    /**
+     * JSON RedisTemplate 설정 - 일반적인 캐싱용
+     */
+    @Bean("jsonRedisTemplate")
+    public RedisTemplate<String, Object> jsonRedisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         
@@ -131,12 +152,4 @@ public class RedisConfig {
         return container;
     }
     
-    /**
-     * ObjectMapper Bean 설정
-     * JSON 직렬화/역직렬화용 (공통 사용)
-     */
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper();
-    }
 }

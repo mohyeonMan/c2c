@@ -341,7 +341,7 @@
         }
         
         // 채팅방 참여하기
-        function joinRoom(event) {
+        async function joinRoom(event) {
             event.preventDefault();
             
             const roomId = document.getElementById('roomId').value;
@@ -360,18 +360,95 @@
                 return;
             }
             
-            C2C.ui.showLoading();
-            // 서버로 리다이렉트
-            window.location.href = `/join/${encodeURIComponent(roomValidation.value)}?nickname=${encodeURIComponent(nicknameValidation.value)}`;
+            try {
+                C2C.ui.showLoading();
+                console.log('🚪 방 참여 시도:', roomId, nickname);
+                
+                // ✨ 핵심 수정: API로 방 존재 여부와 참여 가능 여부를 먼저 확인
+                const joinResponse = await C2C.api.request(`/api/rooms/${encodeURIComponent(roomValidation.value)}/join`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        userId: nicknameValidation.value,
+                        nickname: nicknameValidation.value
+                    })
+                });
+                
+                if (joinResponse.success) {
+                    console.log('✅ 방 참여 API 성공:', joinResponse);
+                    C2C.ui.hideLoading();
+                    
+                    // API 성공 후 채팅방 페이지로 이동
+                    window.location.href = `/join/${encodeURIComponent(roomValidation.value)}?nickname=${encodeURIComponent(nicknameValidation.value)}`;
+                } else {
+                    console.error('❌ 방 참여 API 실패:', joinResponse);
+                    C2C.ui.hideLoading();
+                    
+                    // 에러 타입별 처리
+                    if (joinResponse.errorCode === 'ROOM_NOT_FOUND' || joinResponse.error?.includes('찾을 수 없')) {
+                        C2C.ui.showToast('💔 채팅방을 찾을 수 없습니다. 방 코드를 다시 확인해주세요.', 'danger');
+                        document.getElementById('roomId').focus();
+                    } else {
+                        C2C.ui.showToast(joinResponse.error || '방 참여 중 오류가 발생했습니다', 'danger');
+                    }
+                }
+                
+            } catch (error) {
+                console.error('💥 방 참여 중 네트워크 오류:', error);
+                C2C.ui.hideLoading();
+                
+                if (error.message && error.message.includes('404')) {
+                    C2C.ui.showToast('💔 채팅방을 찾을 수 없습니다. 방 코드를 다시 확인해주세요.', 'danger');
+                    document.getElementById('roomId').focus();
+                } else {
+                    C2C.ui.showToast('방 참여 중 네트워크 오류가 발생했습니다. 다시 시도해주세요.', 'danger');
+                }
+            }
         }
         
-        // URL에서 방 코드 자동 입력 (초대 링크 지원)
+        // 초대링크에서 방 코드 자동 입력 및 폼 표시 + 에러 처리
         document.addEventListener('DOMContentLoaded', function() {
-            const urlParams = C2C.utils.getUrlParams();
-            const roomFromUrl = urlParams.get('room');
+            // Thymeleaf에서 전달된 값들 확인
+            const inviteRoomId = /*[[${inviteRoom}]]*/ null;
+            const errorType = /*[[${error}]]*/ null;
+            const errorRoomId = /*[[${errorRoomId}]]*/ null;
             
-            if (roomFromUrl) {
+            // 에러 처리
+            if (errorType) {
+                console.log('❌ 초대링크 에러 - type:', errorType, 'roomId:', errorRoomId);
+                
+                if (errorType === 'ROOM_NOT_FOUND') {
+                    C2C.ui.showToast('💔 채팅방을 찾을 수 없습니다. 링크가 만료되었거나 잘못된 링크일 수 있어요.', 'danger');
+                } else {
+                    C2C.ui.showToast('❌ 초대링크에 문제가 있어요. 다시 시도해주세요.', 'warning');
+                }
+                
+                // 에러가 있어도 방 참여 폼을 표시하고 잘못된 roomId를 입력해둠 (수정 가능하도록)
+                if (errorRoomId) {
+                    showJoinForm();
+                    document.getElementById('roomId').value = errorRoomId;
+                    document.getElementById('roomId').focus(); // roomId 필드에 포커스
+                }
+                return; // 에러가 있으면 여기서 종료
+            }
+            
+            // 정상적인 초대링크 처리
+            if (inviteRoomId) {
+                console.log('🔗 초대링크로 접근 - roomId:', inviteRoomId);
+                
                 // 초대 링크로 접근한 경우 방 참여 폼을 바로 표시
+                showJoinForm();
+                document.getElementById('roomId').value = inviteRoomId;
+                document.getElementById('joinNickname').focus();
+                
+                // 사용자에게 초대링크로 접근했다는 것을 알림
+                C2C.ui.showToast('🎉 초대링크로 채팅방에 참여하세요! 닉네임만 입력하면 됩니다.', 'success');
+            }
+            
+            // 기존 URL 파라미터 지원도 유지 (하위 호환성)
+            const urlParams = C2C.utils.getUrlParams();
+            const roomFromUrl = urlParams.get('room') || urlParams.get('inviteRoom');
+            
+            if (roomFromUrl && !inviteRoomId && !errorType) {
                 showJoinForm();
                 document.getElementById('roomId').value = roomFromUrl;
                 document.getElementById('joinNickname').focus();

@@ -61,6 +61,8 @@ public class RedisMessageBroker implements MessageBroker {
             String channel = getChannelKey(roomId);
             String jsonMessage = serializeMessage(message);
             
+            System.out.println("보내는 메시지 = "+jsonMessage);
+
             redisTemplate.convertAndSend(channel, jsonMessage);
             
             logger.debug("Published message to channel {}: {}", channel, message);
@@ -232,6 +234,7 @@ public class RedisMessageBroker implements MessageBroker {
         public void onMessage(org.springframework.data.redis.connection.Message message, byte[] pattern) {
             try {
                 String jsonMessage = new String(message.getBody());
+                System.out.println("받은 메시지 = "+jsonMessage);
                 Message domainMessage = deserializeMessage(jsonMessage);
                 String roomId = extractRoomIdFromChannel(channel);
                 

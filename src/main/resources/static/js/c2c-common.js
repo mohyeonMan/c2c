@@ -449,12 +449,63 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('C2C common module loaded');
 });
 
-// 페이지 언로드 시 WebSocket 정리
-window.addEventListener('beforeunload', function() {
-    if (C2C.websocket.socket) {
-        C2C.websocket.disconnect();
-    }
-});
+// 페이지 언로드 시 WebSocket 정리 (강화된 정리 로직)
+// function cleanup() {
+//     if (C2C.websocket.socket && C2C.websocket.isConnected) {
+//         console.log('🧹 사용자 정리: WebSocket 연결 종료');
+//         C2C.websocket.disconnect();
+//     }
+// }
+
+function gracefulLeave() {
+  const roomId = C2C.websocket.currentRoomId;
+  const userId = C2C.websocket.currentUserId;
+  if (!roomId || !userId) return;
+
+  // 1) WS가 열려 있으면 프로토콜로 종료 통지
+  if (C2C.websocket.socket && C2C.websocket.socket.readyState === WebSocket.OPEN) {
+    try {
+      C2C.websocket.socket.send(JSON.stringify({ t: 'leave', roomId }));
+      C2C.websocket.socket.close();
+    } catch (_) {}
+    return;
+  }
+
+  // 2) WS가 닫혀 있으면 HTTP 비콘(keepalive)로 백엔드에 알림
+  const url = `/api/rooms/${encodeURIComponent(roomId)}/leave`;
+  const payload = JSON.stringify({ userId });
+
+  if (navigator.sendBeacon) {
+    try { navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' })); } catch (_) {}
+  } else {
+    try {
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        keepalive: true
+      });
+    } catch (_) {}
+  }
+}
+
+
+window.addEventListener('beforeunload', gracefulLeave);
+window.addEventListener('unload', gracefulLeave);
+
+// 다중 이벤트로 확실한 정리 보장
+// window.addEventListener('beforeunload', cleanup);
+// window.addEventListener('unload', cleanup);
+// window.addEventListener('pagehide', cleanup);
+
+// // 페이지 가시성 API를 사용한 추가 정리
+// document.addEventListener('visibilitychange', function() {
+//     if (document.visibilityState === 'hidden' && C2C.websocket.isConnected) {
+//         console.log('🧹 페이지 숨김: WebSocket 연결 정리');
+//         // 백그라운드로 가면 정리 (모바일에서 중요)
+//         cleanup();
+//     }
+// });
 
 // 전역 스코프에서 접근 가능하도록 노출
 window.C2C = C2C;

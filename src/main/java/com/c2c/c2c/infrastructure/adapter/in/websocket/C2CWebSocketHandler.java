@@ -186,16 +186,22 @@ public class C2CWebSocketHandler implements WebSocketHandler {
                 return;
             }
             
+            logger.info("🔄 메시지 전송 처리 시작 - userId: {}, roomId: {}, text: {}", userId, roomId, text);
+            
             // 도메인 서비스 호출 (Message 생성 및 브로커 발행은 서비스 내에서 처리)
             var sendRequest = new SendMessageRequest(roomId, userId, text, null);
             var sendResponse = sendMessageService.sendMessage(sendRequest);
             
-            // 메시지 전송 성공 로깅
-            logger.debug("Message sent successfully: messageId={}, userId={}, roomId={}, text={}", 
-                        sendResponse.messageId(), userId, roomId, text);
+            logger.info("✅ 메시지 전송 성공 - messageId: {}", sendResponse.messageId());
+            
+            // ✨ 핵심 수정: 방의 모든 사용자에게 즉시 브로드캐스트 (발송자 포함)
+            C2CMessage messageNotification = C2CMessage.messageNotification(roomId, userId, text);
+            broadcastToRoom(roomId, messageNotification, null); // excludeUserId를 null로 설정하여 모든 사용자에게 전송
+            
+            logger.info("📡 메시지 브로드캐스트 완료 - roomId: {}, from: {}", roomId, userId);
             
         } catch (Exception e) {
-            logger.error("Error handling message send: sessionId={}", session.getId(), e);
+            logger.error("❌ 메시지 전송 중 오류 - sessionId: {}, error: {}", session.getId(), e.getMessage(), e);
             sendErrorMessage(session, "MESSAGE_SEND_FAILED", "메시지 전송 실패: " + e.getMessage());
         }
     }
@@ -354,12 +360,19 @@ public class C2CWebSocketHandler implements WebSocketHandler {
      * 방의 모든 사용자에게 메시지 브로드캐스트
      */
     private void broadcastToRoom(String roomId, C2CMessage message, String excludeUserId) {
+        logger.debug("📡 브로드캐스트 시작 - roomId: {}, excludeUserId: {}", roomId, excludeUserId);
+        
         sessionManager.getActiveSessionsInRoom(roomId).forEach(session -> {
             String userId = sessionManager.getUserId(session.getId());
-            if (userId != null && !userId.equals(excludeUserId)) {
+            if (userId != null && (excludeUserId == null || !userId.equals(excludeUserId))) {
                 sendMessage(session, message);
+                logger.debug("✅ 메시지 전송됨 - userId: {}, sessionId: {}", userId, session.getId());
+            } else {
+                logger.debug("⏭️ 메시지 건너뜀 - userId: {}, excludeUserId: {}", userId, excludeUserId);
             }
         });
+        
+        logger.debug("📡 브로드캐스트 완료 - roomId: {}", roomId);
     }
     
     /**

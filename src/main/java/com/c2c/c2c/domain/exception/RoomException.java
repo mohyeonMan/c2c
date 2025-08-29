@@ -63,4 +63,12 @@ public class RoomException extends C2CException {
     public static RoomException roomCapacityExceeded(String roomId, int currentCount, int maxCount) {
         return new RoomException("ROOM_CAPACITY_EXCEEDED", roomId, currentCount, maxCount);
     }
+    
+    /**
+     * 방 생성자 이름이 유효하지 않음
+     * 발생 상황: null, 공백, 형식 오류
+     */
+    public static RoomException invalidCreatorName(String creatorName) {
+        return new RoomException("INVALID_CREATOR_NAME", creatorName);
+    }
 }

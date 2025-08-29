@@ -62,15 +62,53 @@ class ChatPage {
      * 채팅 데이터 검증
      */
     validateChatData() {
+        console.log('🔍 채팅 데이터 검증 시작:', window.chatData);
+        
         // Thymeleaf에서 전달된 데이터 확인
-        if (window.chatData && window.chatData.roomId && window.chatData.nickname) {
-            this.chatData = window.chatData;
-            return true;
+        if (!window.chatData || !window.chatData.roomId || !window.chatData.nickname) {
+            console.error('❌ 채팅 데이터 누락:', window.chatData);
+            this.handleChatDataError('채팅방 정보가 올바르지 않습니다. 메인페이지로 이동합니다.');
+            return false;
         }
         
-        C2C.ui.showToast('채팅방 정보가 올바르지 않습니다', 'danger');
-        setTimeout(() => window.location.href = '/', 2000);
-        return false;
+        // 방 ID 형식 검증
+        const roomIdValidation = C2C.validation.validateRoomId(window.chatData.roomId);
+        if (!roomIdValidation.valid) {
+            console.error('❌ 방 ID 형식 오류:', window.chatData.roomId);
+            this.handleChatDataError('잘못된 방 ID입니다. 메인페이지로 이동합니다.');
+            return false;
+        }
+        
+        // 닉네임 형식 검증
+        const nicknameValidation = C2C.validation.validateNickname(window.chatData.nickname);
+        if (!nicknameValidation.valid) {
+            console.error('❌ 닉네임 형식 오류:', window.chatData.nickname);
+            this.handleChatDataError('잘못된 닉네임입니다. 메인페이지로 이동합니다.');
+            return false;
+        }
+        
+        this.chatData = window.chatData;
+        console.log('✅ 채팅 데이터 검증 성공:', this.chatData);
+        return true;
+    }
+    
+    /**
+     * 채팅 데이터 오류 처리
+     */
+    handleChatDataError(message) {
+        console.error('💔 채팅 데이터 오류:', message);
+        
+        if (typeof C2C !== 'undefined' && C2C.ui) {
+            C2C.ui.showToast(message, 'danger');
+        } else {
+            alert(message);
+        }
+        
+        // 3초 후 메인페이지로 이동 (사용자가 메시지를 읽을 시간 제공)
+        setTimeout(() => {
+            console.log('🏠 메인페이지로 리다이렉트');
+            window.location.href = '/';
+        }, 3000);
     }
 
     /**
@@ -193,12 +231,42 @@ class ChatPage {
      * 에러 처리
      */
     handleError(message) {
-        C2C.ui.showToast(message.message || '오류가 발생했습니다', 'danger');
+        console.error('💥 WebSocket 에러 수신:', message);
         
-        if (message.code === 'ROOM_NOT_FOUND') {
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 2000);
+        const errorCode = message.code || 'UNKNOWN_ERROR';
+        const errorMessage = message.message || '알 수 없는 오류가 발생했습니다';
+        
+        // 에러 코드별 처리
+        switch (errorCode) {
+            case 'ROOM_NOT_FOUND':
+                console.error('❌ 방을 찾을 수 없음 - 메인페이지로 이동');
+                C2C.ui.showToast('💔 채팅방을 찾을 수 없습니다. 방이 삭제되었거나 만료되었을 수 있습니다.', 'danger');
+                setTimeout(() => {
+                    window.location.href = '/?error=ROOM_NOT_FOUND';
+                }, 3000);
+                break;
+                
+            case 'NOT_AUTHENTICATED':
+                console.error('❌ 인증되지 않은 사용자');
+                C2C.ui.showToast('🚫 인증에 실패했습니다. 다시 입장해주세요.', 'danger');
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 3000);
+                break;
+                
+            case 'CONNECTION_FAILED':
+                console.error('❌ 연결 실패');
+                C2C.ui.showToast('🔗 서버 연결에 실패했습니다. 네트워크를 확인해주세요.', 'warning');
+                break;
+                
+            case 'MESSAGE_SEND_FAILED':
+                console.error('❌ 메시지 전송 실패');
+                C2C.ui.showToast('💬 메시지 전송에 실패했습니다. 다시 시도해주세요.', 'warning');
+                break;
+                
+            default:
+                console.error('❌ 기타 오류:', errorCode, errorMessage);
+                C2C.ui.showToast(`❌ ${errorMessage}`, 'danger');
         }
     }
 
@@ -233,31 +301,24 @@ class ChatPage {
      */
     displayMessage(sender, text, isMine) {
         if (!this.elements.messagesContainer) return;
-        
-        const messageGroup = document.createElement('div');
-        messageGroup.className = `message-group ${isMine ? 'mine' : 'others'}`;
-        
-        // 발신자 표시 (내 메시지가 아닐 때)
-        if (!isMine) {
-            const senderElement = document.createElement('div');
-            senderElement.className = 'message-sender';
-            senderElement.textContent = sender;
-            messageGroup.appendChild(senderElement);
-        }
-        
-        // 메시지 버블
-        const bubble = document.createElement('div');
-        bubble.className = `message-bubble ${isMine ? 'mine' : 'others'}`;
-        bubble.textContent = text;
-        messageGroup.appendChild(bubble);
-        
-        // 시간 표시
-        const timeElement = document.createElement('div');
-        timeElement.className = 'message-time';
-        timeElement.textContent = C2C.utils.formatTime(new Date());
-        messageGroup.appendChild(timeElement);
-        
-        this.elements.messagesContainer.appendChild(messageGroup);
+
+        // 마지막 그룹이 같은 작성자인지 확인
+        const lastGroup = this.getLastMessageGroup();
+        const sameSender = lastGroup
+            && lastGroup.dataset.sender === sender
+            && lastGroup.classList.contains(isMine ? 'mine' : 'others');
+
+        // 같은 작성자면 기존 그룹, 아니면 새 그룹
+        const group = sameSender ? lastGroup : this.createMessageGroup(sender, isMine);
+
+        // 버블 추가
+        const bubbles = group.querySelector('.message-bubbles');
+        bubbles.appendChild(this.createBubble(text, isMine));
+
+        // 그룹 하단 시간만 갱신
+        this.updateGroupTime(group, new Date());
+
+        // 스크롤
         this.scrollToBottom();
     }
 
@@ -354,24 +415,103 @@ class ChatPage {
      * 초대 링크 복사
      */
     async copyInviteLink() {
-        const inviteUrl = `${window.location.origin}/join/${this.chatData.roomId}`;
+        // ✨ 새로운 초대링크 형식 사용: /invite/{roomId}
+        const inviteUrl = `${window.location.origin}/invite/${this.chatData.roomId}`;
+        
+        console.log('🔗 초대링크 생성:', inviteUrl);
         
         const success = await C2C.utils.copyToClipboard(inviteUrl);
         if (success) {
-            C2C.ui.showToast('초대 링크가 복사되었어요', 'success');
+            C2C.ui.showToast('초대 링크가 복사되었어요! 친구들과 공유해보세요 🎉', 'success');
         } else {
-            C2C.ui.showToast('링크 복사에 실패했어요', 'danger');
+            C2C.ui.showToast('링크 복사에 실패했어요. 다시 시도해주세요.', 'danger');
+            
+            // 복사 실패 시 대안 제공 - 링크를 콘솔에 출력
+            console.log('📋 수동 복사용 초대링크:', inviteUrl);
         }
     }
 
     /**
-     * 방 나가기
+     * 방 나가기 (강화된 정리 로직)
      */
     leaveRoom() {
-        C2C.websocket.disconnect();
+        console.log('🚪 채팅방 나가기 시작');
+        
+        // 확실한 WebSocket 정리
+        if (C2C.websocket.isConnected) {
+            C2C.websocket.disconnect();
+        }
+        
+        // 약간의 지연 후 페이지 이동 (WebSocket 정리 시간 확보)
         setTimeout(() => {
+            console.log('🏠 메인페이지로 이동');
             window.location.href = '/';
-        }, 500);
+        }, 300);
+    }
+
+    getLastMessageGroup() {
+        const container = this.elements.messagesContainer;
+        if (!container) return null;
+
+        for (let i = container.children.length - 1; i >= 0; i--) {
+            const el = container.children[i];
+            if (el.classList && el.classList.contains('message-group')) {
+                return el;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 새 메시지 그룹 생성
+     * 구조:
+     * <div class="message-group mine/others" data-sender="닉네임">
+     *   [others만] <div class="message-sender">닉네임</div>
+     *   <div class="message-bubbles"></div>
+     *   <div class="message-time">오전 10:11</div>
+     * </div>
+     */
+    createMessageGroup(sender, isMine) {
+        const group = document.createElement('div');
+        group.className = `message-group ${isMine ? 'mine' : 'others'}`;
+        group.dataset.sender = sender;
+
+        if (!isMine) {
+            const senderEl = document.createElement('div');
+            senderEl.className = 'message-sender';
+            senderEl.textContent = sender;
+            group.appendChild(senderEl);
+        }
+
+        const bubbles = document.createElement('div');
+        bubbles.className = 'message-bubbles';
+        group.appendChild(bubbles);
+
+        const timeEl = document.createElement('div');
+        timeEl.className = 'message-time';
+        timeEl.textContent = C2C.utils.formatTime(new Date());
+        group.appendChild(timeEl);
+
+        this.elements.messagesContainer.appendChild(group);
+        return group;
+    }
+
+    /**
+     * 버블 생성
+     */
+    createBubble(text, isMine) {
+        const bubble = document.createElement('div');
+        bubble.className = `message-bubble ${isMine ? 'mine' : 'others'}`;
+        bubble.textContent = text;
+        return bubble;
+    }
+
+    /**
+     * 그룹 하단 시간 갱신
+     */
+    updateGroupTime(group, date) {
+        const timeEl = group.querySelector('.message-time');
+        if (timeEl) timeEl.textContent = C2C.utils.formatTime(date);
     }
 }
 

@@ -2,12 +2,17 @@ package com.c2c.c2c.infrastructure.adapter.in.web;
 
 import com.c2c.c2c.domain.port.in.CreateRoomUseCase;
 import com.c2c.c2c.domain.port.in.CreateRoomUseCase.CreateRoomCommand;
+import com.c2c.c2c.domain.port.in.JoinRoomUseCase;
+import com.c2c.c2c.domain.port.in.JoinRoomUseCase.JoinRoomRequest;
+import com.c2c.c2c.domain.port.in.JoinRoomUseCase.JoinRoomResponse;
 import com.c2c.c2c.infrastructure.adapter.in.web.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import com.c2c.c2c.infrastructure.adapter.in.web.validation.ValidNickname;
+import java.time.LocalDateTime;
+import java.util.Set;
 
 /**
  * 채팅방 REST API 컨트롤러
@@ -19,9 +24,11 @@ import com.c2c.c2c.infrastructure.adapter.in.web.validation.ValidNickname;
 public class RoomRestController {
     
     private final CreateRoomUseCase createRoomUseCase;
+    private final JoinRoomUseCase joinRoomUseCase;
     
-    public RoomRestController(CreateRoomUseCase createRoomUseCase) {
+    public RoomRestController(CreateRoomUseCase createRoomUseCase, JoinRoomUseCase joinRoomUseCase) {
         this.createRoomUseCase = createRoomUseCase;
+        this.joinRoomUseCase = joinRoomUseCase;
     }
     
     /**
@@ -40,6 +47,33 @@ public class RoomRestController {
         return ResponseEntity.status(HttpStatus.CREATED).body(apiResponse);
     }
     
+    /**
+     * 방 입장
+     * POST /api/rooms/{roomId}/join
+     */
+    @PostMapping("/{roomId}/join")
+    public ResponseEntity<ApiResponse<JoinRoomResponseDto>> joinRoom(
+            @PathVariable String roomId, 
+            @Valid @RequestBody JoinRoomRequestDto request) {
+        
+        JoinRoomRequest joinRequest = new JoinRoomRequest(roomId, request.userId(), request.nickname(), null, null);
+        JoinRoomResponse response = joinRoomUseCase.joinRoom(joinRequest);
+        
+        JoinRoomResponseDto responseDto = new JoinRoomResponseDto(
+            response.roomId(),
+            response.userId(), 
+            response.displayName(),
+            response.members(),
+            response.memberCount(),
+            response.wasEmpty(),
+            response.joinedAt().toString()
+        );
+        
+        ApiResponse<JoinRoomResponseDto> apiResponse = ApiResponse.success(responseDto, "방에 성공적으로 입장했습니다");
+        
+        return ResponseEntity.ok(apiResponse);
+    }
+
     /**
      * 채팅방 조회
      * GET /api/rooms/{roomId}
@@ -75,6 +109,23 @@ public class RoomRestController {
     
     public record CreateRoomResponse(
         String roomId
+    ) {}
+    
+    public record JoinRoomRequestDto(
+        @ValidNickname
+        String userId,
+        @ValidNickname
+        String nickname
+    ) {}
+    
+    public record JoinRoomResponseDto(
+        String roomId,
+        String userId, 
+        String displayName,
+        Set<String> members,
+        int memberCount,
+        boolean wasEmpty,
+        String joinedAt
     ) {}
     
     public record RoomInfoResponse(

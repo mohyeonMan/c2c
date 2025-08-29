@@ -14,9 +14,15 @@ spring:
     livereload:
       enabled: true  # 기본 true, 확인차 명시
       
-  # PostgreSQL 설정 (Docker Compose 서비스명 사용)
+  # Jackson 설정
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+      
+  # PostgreSQL 설정 (로컬 개발용)
   datasource:
-    url: jdbc:postgresql://localhost:5431/c2c
+    url: jdbc:postgresql://localhost:5431/c2c  # 5431 → 5432 변경 (표준 포트)
     username: c2c
     password: c2c123
     driver-class-name: org.postgresql.Driver
@@ -31,10 +37,10 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
   
-  # Redis 설정 (Docker Compose 서비스명 사용)
+  # Redis 설정 (로컬 개발용)
   data:
     redis:
-      host: redis
+      host: localhost  # redis → localhost 변경 (로컬 개발용)
       port: 6379
       timeout: 2000ms
       lettuce:
@@ -78,7 +84,7 @@ c2c:
 # 로깅 설정
 logging:
   level:
-    com.c2c.c2c: DEBUG
+    com.c2c.c2c: INFO
     org.springframework.data.redis: INFO
     org.springframework.web.socket: INFO
     org.hibernate.SQL: DEBUG

@@ -55,8 +55,8 @@ public class SendMessageService implements SendMessageUseCase {
             LocalDateTime.now()
         );
         
-        // 4. MessageBroker를 통해 메시지 발행 (다른 사용자들에게 전송)
-        messageBroker.publish(request.roomId(), message);
+        // 4. MessageBroker 발행은 WebSocket 핸들러에서 처리하도록 변경
+        // messageBroker.publish(request.roomId(), message); // 중복 전송 방지를 위해 주석 처리
         
         // 5. 수신자 수 계산 (발신자 제외)
         int recipientCount = Math.max(0, room.getMemberCount() - 1);

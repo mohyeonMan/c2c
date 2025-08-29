@@ -2,6 +2,7 @@ package com.c2c.c2c.infrastructure.adapter.out.redis;
 
 import com.c2c.c2c.domain.model.User;
 import com.c2c.c2c.domain.port.out.UserRepository;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -34,7 +35,7 @@ public class UserRedisRepository implements UserRepository {
     private static final Duration PRESENCE_TTL = Duration.ofSeconds(30);
     private static final String ONLINE_VALUE = "online";
     
-    public UserRedisRepository(RedisTemplate<String, Object> redisTemplate) {
+    public UserRedisRepository(@Qualifier("jsonRedisTemplate") RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
     }
     
